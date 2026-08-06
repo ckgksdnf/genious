@@ -202,13 +202,21 @@ async function loadSalesWithMenu() {
     const minimumOrder = sale.minimumOrder || 1;
     button.closest('.sale-card').querySelector('div').insertAdjacentHTML('beforeend', `<small class="minimum-order-note">최소 주문 ${minimumOrder}kg</small>`);
   });
-  target.querySelectorAll('[data-cancel-sale]').forEach(button => button.addEventListener('click', () => {
-    if (!window.confirm('취소하겠습니까?')) return;
-    const updated = JSON.parse(localStorage.getItem('singsing-sales') || '[]').filter(item => item.id !== button.dataset.cancelSale);
-    localStorage.setItem('singsing-sales', JSON.stringify(updated));
-    showToast('판매 등록이 취소되었습니다.');
-    loadSalesWithMenu();
-  }));
+  target.querySelectorAll('[data-cancel-sale]').forEach(button => {
+    const sale = rows.find(item => item.id === button.dataset.cancelSale);
+    const isSeller = sale && auth.currentUser && sale.sellerUid === auth.currentUser.uid;
+    if (!isSeller) {
+      button.remove();
+      return;
+    }
+    button.addEventListener('click', () => {
+      if (!window.confirm('취소하겠습니까?')) return;
+      const updated = JSON.parse(localStorage.getItem('singsing-sales') || '[]').filter(item => item.id !== button.dataset.cancelSale);
+      localStorage.setItem('singsing-sales', JSON.stringify(updated));
+      showToast('판매 등록이 취소되었습니다.');
+      loadSalesWithMenu();
+    });
+  });
 }
 
 // 수족관에서도 점 세 개 메뉴로 구매 요청을 취소할 수 있게 합니다.
