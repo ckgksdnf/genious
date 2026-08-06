@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="부산 수산물 어획량, 재고, 시세를 확인하고 구매 요청을 등록하는 시연용 플랫폼" />
+  <title>밥먹었수산시장</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Nanum+Myeongjo:wght@700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="account.css" />
+  <link rel="stylesheet" href="web.css" />
+  <link rel="stylesheet" href="responsive-fix.css" />
+  <link rel="stylesheet" href="history.css" />
+  <link rel="stylesheet" href="sale.css" />
+</head>
+<body>
+  <main class="phone-shell">
+    <section class="app-screen login-screen active" id="login" aria-label="로그인">
+      <div class="login-art"><span>⌁</span><span>⌁</span><span>⌁</span><div class="login-wave"></div></div>
+      <div class="login-content"><div class="login-brand">🐟 <b>밥먹었수산시장</b></div><p class="demo-label">BUSAN SEAFOOD PLATFORM</p><h1>부산 바다의 소식을<br />함께 나누어요</h1><p class="login-guide">회원가입 후 수산물 정보를 확인해 보세요.</p><form id="loginForm" class="account-form"><label>이메일<input id="loginId" type="email" autocomplete="email" required /></label><label>비밀번호<input id="loginPassword" type="password" minlength="6" autocomplete="current-password" required /></label><button class="primary-button" type="submit">로그인하기 <span>→</span></button></form><button class="account-link" data-go="signup">아직 계정이 없나요? <b>회원가입</b></button></div>
+    </section>
+
+    <section class="app-screen" id="home" aria-label="홈">
+      <header class="topbar"><a class="brand" href="#home">🐟 <span>밥먹었수산시장</span></a><div><button class="header-button" data-go="register">정보 등록</button><button class="profile-button" data-go="profile" aria-label="프로필">●</button></div></header>
+      <div class="ocean-home">
+        <span class="bird bird-one">⌁</span><span class="bird bird-two">⌁</span><span class="bird bird-three">⌁</span>
+        <div class="home-title"><p>BUSAN SEAFOOD LIVE MARKET</p><h1>오늘 바다의<br /><em>신선한 소식</em></h1><span>부산 수산물 정보를 한곳에서 만나보세요</span></div>
+        <div class="cloud cloud-a"></div><div class="cloud cloud-b"></div>
+        <div class="mountain"></div><div class="sea-lines"></div>
+      </div>
+      <section class="home-panel">
+        <p class="demo-label">● 시연용 예시 데이터</p>
+        <h2>무엇을 확인할까요?</h2>
+        <div class="main-menu">
+          <button data-go="catch"><span class="menu-icon">⚓</span><b>어획량</b><small>오늘 들어온 양</small></button>
+          <button data-go="stock"><span class="menu-icon">▦</span><b>재고</b><small>판매 가능 수량</small></button>
+          <button data-go="price"><span class="menu-icon">₩</span><b>시세</b><small>품목별 현재 가격</small></button>
+          <button class="purchase-menu" data-go="sale"><span class="menu-icon">＋</span><b>판매 등록</b><small>상품 올리기</small></button>
+          <button class="buy-menu" data-go="purchase"><span class="menu-icon">🛒</span><b>구매</b><small>판매 상품 보기</small></button>
+        </div>
+      </section>
+    </section>
+
+    <section class="app-screen data-screen" id="catch" aria-label="어획량 정보"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>FISHING REPORT</small><h2>오늘의 어획량</h2></div><button class="icon-button" data-go="register">＋</button></div><p class="demo-label">● 시연용 예시 데이터 · 작년 같은 날과 비교</p><div class="summary-card"><span>오늘 총 어획량</span><strong id="totalCatch">0 kg</strong><p>작년 같은 날 대비 <b class="up">+0%</b></p></div><div class="fish-list" id="catchList"></div></section>
+    <section class="app-screen data-screen" id="stock" aria-label="재고 정보"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>AVAILABLE STOCK</small><h2>판매 가능 재고</h2></div><button class="icon-button" data-go="register">＋</button></div><p class="demo-label">● 시연용 예시 데이터 · 작년 같은 날과 비교</p><div class="summary-card sky"><span>오늘 총 재고</span><strong id="totalStock">0 kg</strong><p>작년 같은 날 대비 <b class="down">-0%</b></p></div><div class="fish-list" id="stockList"></div></section>
+    <section class="app-screen data-screen" id="price" aria-label="시세 정보"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>MARKET PRICE</small><h2>오늘의 시세</h2></div><button class="icon-button" data-go="register">＋</button></div><p class="demo-label">● 시연용 예시 데이터 · 작년 같은 날과 비교</p><div class="summary-card navy"><span>6개 품목 평균 시세</span><strong id="averagePrice">0원/kg</strong><p>작년 같은 날 대비 <b class="up">+0%</b></p></div><div class="fish-list" id="priceList"></div></section>
+
+    <section class="app-screen form-screen" id="sale" aria-label="판매 등록"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>SALE REGISTRATION</small><h2>판매 등록</h2></div><span></span></div><p class="form-intro">판매할 수산물을 등록하면<br />구매 탭에서 다른 사용자가 볼 수 있어요.</p><form id="saleForm"><label>판매 장소<select required><option value="">시장을 선택해 주세요</option><option>부산공동어시장</option><option>자갈치시장</option><option>신동아수산물종합시장</option><option>민락어민활어직판장</option><option>기장시장</option><option>대변항 수산시장</option><option>다대포수산시장</option><option>명지시장</option></select></label><label>수산물 품목<select required><option value="">품목을 선택해 주세요</option><option>고등어</option><option>갑오징어</option><option>갈치</option><option>광어</option><option>우럭</option><option>멸치</option></select></label><div class="two-fields"><label>판매 가능 수량<input type="number" min="0.1" step="0.1" required /><small>kg</small></label><label>판매 가격<input type="number" min="1" step="100" required /><small>원/kg</small></label></div><button class="primary-button" type="submit">판매 등록하기 <span>→</span></button></form></section>
+    <section class="app-screen form-screen" id="purchase" aria-label="구매"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>BUY SEAFOOD</small><h2>구매</h2></div><span></span></div><p class="form-intro">판매 등록된 상품 중에서 원하는<br />수산물을 선택해 구매 요청하세요.</p><div id="saleList" class="sale-list"></div><form id="purchaseForm" hidden><p id="selectedSale" class="selected-sale"></p><label>구매 수량<input type="number" min="0.1" step="0.1" required /><small class="single-unit">kg</small></label><label>구매 희망 시기<select required><option>오늘 중</option><option>내일</option><option>3일 이내</option></select></label><button class="primary-button" type="submit">구매 요청하기 <span>→</span></button></form></section>
+
+    <section class="app-screen form-screen" id="register" aria-label="정보 등록"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>SELLER / FISHER</small><h2>정보 등록</h2></div><span></span></div><p class="form-intro">판매자 또는 어획자가 오늘의<br />수산물 정보를 직접 등록합니다.</p><form id="registerForm"><label>판매 장소<select required><option value="">시장을 선택해 주세요</option><option>부산공동어시장</option><option>자갈치시장</option><option>신동아수산물종합시장</option><option>민락어민활어직판장</option><option>기장시장</option><option>대변항 수산시장</option><option>다대포수산시장</option><option>명지시장</option></select></label><label>수산물 품목<select required><option value="">품목을 선택해 주세요</option><option>고등어</option><option>갑오징어</option><option>갈치</option><option>광어</option><option>우럭</option><option>멸치</option></select></label><div class="two-fields"><label>어획량<input type="number" min="0" step="0.1" placeholder="예: 120" required /><small>kg</small></label><label>재고<input type="number" min="0" step="0.1" placeholder="예: 80" required /><small>kg</small></label></div><label>시세<input type="number" min="0" step="100" placeholder="예: 15000" required /><small class="single-unit">원/kg</small></label><p class="input-note">※ 시연에서는 입력값이 외부에 저장되지 않습니다.</p><button class="primary-button" type="submit">정보 등록하기 <span>→</span></button></form></section>
+
+    <section class="app-screen login-screen signup-screen" id="signup" aria-label="회원가입"><div class="screen-header"><button class="back" data-go="login">‹</button><div><small>FIREBASE ACCOUNT</small><h2>회원가입</h2></div><span></span></div><div class="signup-content"><p class="form-intro">이메일과 비밀번호로 계정을 만드세요.</p><form id="signupForm" class="account-form"><label>이메일<input id="signupId" type="email" autocomplete="email" required /></label><label>비밀번호<input id="signupPassword" type="password" minlength="6" autocomplete="new-password" required /></label><label>비밀번호 확인<input id="signupConfirm" type="password" minlength="6" autocomplete="new-password" required /></label><button class="primary-button" type="submit">회원가입 완료 <span>→</span></button></form><button class="account-link" data-go="login">이미 계정이 있나요? <b>로그인</b></button></div></section>
+
+    <section class="app-screen form-screen" id="profile" aria-label="프로필"><div class="screen-header"><button class="back" data-go="home">‹</button><div><small>MY PROFILE</small><h2>프로필</h2></div><span></span></div><div class="profile-card"><div class="profile-avatar">🐟</div><p>안녕하세요!</p><strong id="profileId">로그인 사용자</strong><span>밥먹었수산시장 회원</span></div><div class="profile-info"><div><span>계정 유형</span><b>Firebase 회원</b></div><div><span>인증 방식</span><b>이메일 / 비밀번호</b></div></div><section class="history"><h3>이전 거래 내역</h3><p class="history-note">구매 신청과 정보 등록 내역입니다.</p><div id="historyList"><p class="empty-history">로그인 후 거래 내역을 확인할 수 있어요.</p></div></section><p class="profile-note">비밀번호는 Firebase Authentication이 안전하게 관리하며<br />웹사이트에는 저장되지 않습니다.</p><button id="logoutButton" class="logout-button">로그아웃</button></section>
+  </main>
+  <div class="toast" id="toast" aria-live="polite"></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
