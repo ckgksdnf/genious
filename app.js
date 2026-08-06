@@ -260,16 +260,74 @@ function resetDirectInputs(form) {
 
 let editingInfoId = null;
 let lastInfoSource = 'stock';
+let registrationMode = 'stock';
+
+const registerFormElement = document.getElementById('registerForm');
+const registerSelects = registerFormElement.querySelectorAll('select');
+const registerNumbers = registerFormElement.querySelectorAll('input[type="number"]');
+const operationLocationLabel = document.createElement('label');
+operationLocationLabel.innerHTML = '조업 위치<input id="operationLocation" type="text" placeholder="예: 기장 앞바다 북쪽" /><small class="single-unit">직접 입력</small>';
+registerSelects[1].parentElement.after(operationLocationLabel);
+
+function setLabelText(label, text) {
+  const textNode = [...label.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
+  if (textNode) textNode.nodeValue = text;
+}
+
+function setAreaOptions(options, placeholder) {
+  const select = registerSelects[0];
+  select.innerHTML = `<option value="">${placeholder}</option>${options.map(option => `<option>${option}</option>`).join('')}<option value="__direct__">직접 입력</option>`;
+  const direct = registerFormElement.querySelectorAll('.direct-input')[0];
+  direct.hidden = true;
+  direct.required = false;
+  direct.value = '';
+}
+
+function configureRegistration(mode) {
+  registrationMode = mode;
+  lastInfoSource = mode;
+  const catchField = registerNumbers[0].parentElement;
+  const stockField = registerNumbers[1].parentElement;
+  const priceField = registerNumbers[2].parentElement;
+  const header = document.querySelector('#register .screen-header h2');
+  const intro = document.querySelector('#register .form-intro');
+  if (mode === 'catch') {
+    setLabelText(registerSelects[0].parentElement, '어획 해역');
+    setAreaOptions(['부산 연안', '기장 연안', '영도 연안', '다대포 연안'], '어획 해역을 선택해 주세요');
+    setLabelText(catchField, '어획량');
+    catchField.hidden = false;
+    stockField.hidden = true;
+    priceField.hidden = true;
+    operationLocationLabel.hidden = false;
+    document.getElementById('operationLocation').required = true;
+    header.textContent = '어획량 등록';
+    intro.innerHTML = '어획 해역과 조업 위치를 함께<br />등록해 신뢰도 높은 정보를 만듭니다.';
+  } else {
+    setLabelText(registerSelects[0].parentElement, '판매 시장');
+    setAreaOptions(['부산공동어시장', '자갈치시장', '신동아수산물종합시장', '민락어민활어직판장', '기장시장', '대변항 수산시장', '다대포수산시장', '명지시장'], '판매 시장을 선택해 주세요');
+    setLabelText(stockField, '판매 가능 재고');
+    catchField.hidden = true;
+    stockField.hidden = false;
+    priceField.hidden = true;
+    operationLocationLabel.hidden = true;
+    document.getElementById('operationLocation').required = false;
+    header.textContent = '재고 등록';
+    intro.innerHTML = '판매할 시장과 품목별 재고를<br />등록해 구매자에게 알립니다.';
+  }
+}
+configureRegistration('stock');
+document.querySelector('#price .icon-button').remove();
 
 function renderRegisteredInfo(type) {
   const list = document.querySelector(`#${type} .fish-list`);
   if (!list) return;
   list.querySelector('.registered-info')?.remove();
   const entries = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
-  if (!entries.length) return;
+  const relevantEntries = entries.filter(item => !item.mode || item.mode === type);
+  if (!relevantEntries.length) return;
   const panel = document.createElement('section');
   panel.className = 'registered-info';
-  panel.innerHTML = `<h3>내가 등록한 정보</h3>${entries.map(item => `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${item.market} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong><div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div></div></article>`).join('')}`;
+  panel.innerHTML = `<h3>내가 등록한 정보</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong><div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div></div></article>`; }).join('')}`;
   list.appendChild(panel);
   panel.querySelectorAll('[data-edit-info]').forEach(button => button.addEventListener('click', () => openInfoEditor(button.dataset.editInfo)));
   panel.querySelectorAll('[data-cancel-info]').forEach(button => button.addEventListener('click', () => {
@@ -303,18 +361,22 @@ function openInfoEditor(id) {
   if (!entry) return;
   const form = document.getElementById('registerForm');
   editingInfoId = id;
-  setSelectOrDirect(form, 0, entry.market);
+  configureRegistration(entry.mode || 'stock');
+  setSelectOrDirect(form, 0, entry.mode === 'catch' ? entry.area : entry.market);
   setSelectOrDirect(form, 1, entry.fish);
   const numbers = form.querySelectorAll('input[type="number"]');
-  numbers[0].value = entry.catch;
-  numbers[1].value = entry.stock;
-  numbers[2].value = entry.price;
+  if (entry.mode === 'catch') {
+    numbers[0].value = entry.catch;
+    document.getElementById('operationLocation').value = entry.operationLocation || '';
+  } else {
+    numbers[1].value = entry.stock;
+  }
   form.querySelector('.primary-button').childNodes[0].textContent = '정보 수정 완료 ';
   go('register');
 }
 
-document.querySelector('#catch .icon-button').addEventListener('click', () => { lastInfoSource = 'catch'; });
-document.querySelector('#stock .icon-button').addEventListener('click', () => { lastInfoSource = 'stock'; });
+document.querySelector('#catch .icon-button').addEventListener('click', () => configureRegistration('catch'));
+document.querySelector('#stock .icon-button').addEventListener('click', () => configureRegistration('stock'));
 document.querySelector('[data-go="catch"]').addEventListener('click', () => renderRegisteredInfo('catch'));
 document.querySelector('[data-go="stock"]').addEventListener('click', () => renderRegisteredInfo('stock'));
 
@@ -327,11 +389,14 @@ directRegisterForm.addEventListener('submit', event => {
   const entries = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
   const savedEntry = {
     id: editingInfoId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
-    market: selectedOrDirect(directRegisterForm, 0),
+    mode: registrationMode,
+    market: registrationMode === 'stock' ? selectedOrDirect(directRegisterForm, 0) : '',
+    area: registrationMode === 'catch' ? selectedOrDirect(directRegisterForm, 0) : '',
+    operationLocation: registrationMode === 'catch' ? document.getElementById('operationLocation').value.trim() : '',
     fish: selectedOrDirect(directRegisterForm, 1),
-    catch: Number(numbers[0].value),
-    stock: Number(numbers[1].value),
-    price: Number(numbers[2].value),
+    catch: registrationMode === 'catch' ? Number(numbers[0].value) : 0,
+    stock: registrationMode === 'stock' ? Number(numbers[1].value) : 0,
+    price: 0,
     createdAt: new Date().toISOString()
   };
   if (editingInfoId) {
