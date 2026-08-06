@@ -35,6 +35,10 @@ const salePriceInput = document.querySelectorAll('#saleForm input[type="number"]
 salePriceInput.min = '0';
 salePriceInput.step = '1';
 
+const minimumOrderLabel = document.createElement('label');
+minimumOrderLabel.innerHTML = '최소 주문 수량<input class="minimum-order-input" type="number" min="0.1" step="0.1" value="1" required /><small class="single-unit">kg</small>';
+document.querySelector('#saleForm .primary-button').before(minimumOrderLabel);
+
 const visualStyle = document.createElement('style');
 visualStyle.textContent = `
   body, button, input, select { font-family: 'Gowun Dodum', sans-serif; }
@@ -52,6 +56,7 @@ visualStyle.textContent = `
   .main-menu .menu-icon { background: #fff; color: #056fa8; box-shadow: 0 3px 7px #0a6c961f; }
   .direct-input { margin-top: 8px; background: #f4fbfe; }
   .direct-input[hidden] { display: none; }
+  .minimum-order-note { color: #087f72 !important; font-weight: 700; }
   .registered-info { margin-top: 22px; padding-top: 16px; border-top: 2px solid #bcdfe9; }
   .registered-info h3 { margin: 0 0 5px; color: #063d72; font-size: 14px; }
   .user-info-row { background: #f0fbff; padding: 12px 8px; border-radius: 10px; border-bottom: 0; margin-top: 7px; }
@@ -192,6 +197,11 @@ async function loadSalesWithMenu() {
     ? rows.map(s => `<article class="sale-card"><div><b>${s.fish}</b><small>${s.market} · 판매자 ${s.sellerEmail}</small><strong>${s.quantity}kg · ${Number(s.price).toLocaleString('ko-KR')}원/kg</strong></div><div class="card-actions"><button data-sale="${s.id}">구매 요청</button><button class="more-button" data-cancel-sale="${s.id}" aria-label="판매 등록 메뉴">⋯</button></div></article>`).join('')
     : '<p class="empty-sale">아직 판매 등록된 상품이 없습니다.</p>';
   window.saleRows = rows;
+  target.querySelectorAll('[data-sale]').forEach(button => {
+    const sale = rows.find(item => item.id === button.dataset.sale);
+    const minimumOrder = sale.minimumOrder || 1;
+    button.closest('.sale-card').querySelector('div').insertAdjacentHTML('beforeend', `<small class="minimum-order-note">최소 주문 ${minimumOrder}kg</small>`);
+  });
   target.querySelectorAll('[data-cancel-sale]').forEach(button => button.addEventListener('click', () => {
     if (!window.confirm('취소하겠습니까?')) return;
     const updated = JSON.parse(localStorage.getItem('singsing-sales') || '[]').filter(item => item.id !== button.dataset.cancelSale);
@@ -218,6 +228,17 @@ function loadAquarium() {
 }
 
 document.querySelector('[data-go="purchase"]').addEventListener('click', loadSalesWithMenu);
+
+document.getElementById('saleList').addEventListener('click', event => {
+  if (!event.target.dataset.sale) return;
+  const sale = window.saleRows.find(item => item.id === event.target.dataset.sale);
+  if (!sale) return;
+  selectedSale = sale;
+  const minimumOrder = sale.minimumOrder || 1;
+  document.getElementById('selectedSale').textContent = `선택 상품: ${sale.fish} · ${sale.quantity}kg · 최소 주문 ${minimumOrder}kg`;
+  document.querySelector('#purchaseForm input[type="number"]').min = minimumOrder;
+  document.querySelector('#purchaseForm input[type="number"]').placeholder = `최소 ${minimumOrder}kg`;
+});
 
 function selectedOrDirect(form, index) {
   const select = form.querySelectorAll('select')[index];
@@ -336,7 +357,8 @@ directSaleForm.addEventListener('submit', event => {
     market: selectedOrDirect(directSaleForm, 0),
     fish: selectedOrDirect(directSaleForm, 1),
     quantity: Number(numbers[0].value),
-    price: Number(numbers[1].value)
+    price: Number(numbers[1].value),
+    minimumOrder: Number(numbers[2].value)
   });
   localStorage.setItem('singsing-sales', JSON.stringify(sales));
   directSaleForm.reset();
@@ -359,6 +381,11 @@ purchaseForm.addEventListener('submit', event => {
   event.stopImmediatePropagation();
   if (!selectedSale) return;
   const fields = purchaseForm.querySelectorAll('select,input');
+  const minimumOrder = selectedSale.minimumOrder || 1;
+  if (Number(fields[0].value) < minimumOrder) {
+    showToast(`이 상품은 최소 ${minimumOrder}kg부터 구매할 수 있습니다.`);
+    return;
+  }
   const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
   requests.unshift({
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
