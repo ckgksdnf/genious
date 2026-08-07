@@ -14,12 +14,12 @@ function activeUser() {
 }
 
 // 역할 분리 시연을 위해 이전 구매 요청 기록은 한 번만 초기화합니다.
-if (localStorage.getItem('singsing-demo-role-reset') !== '2026080720') {
+if (localStorage.getItem('singsing-demo-role-reset') !== '2026080734') {
   localStorage.removeItem('singsing-purchase-requests');
   localStorage.removeItem('singsing-my-request-ids-demo-buyer');
   localStorage.removeItem('singsing-my-request-ids-demo-seller');
   localStorage.removeItem('singsing-cancellation-log-demo-buyer');
-  localStorage.setItem('singsing-demo-role-reset', '2026080720');
+  localStorage.setItem('singsing-demo-role-reset', '2026080734');
 }
 if (localStorage.getItem('singsing-info-owner-migration') !== '2026080722') {
   const existingInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').map(item => ({ ...item, ownerUid: item.ownerUid || 'demo-seller' }));
@@ -620,6 +620,17 @@ function loadAquarium() {
     showToast('거래 시간을 선택했습니다. 판매자에게 전달됩니다.');
     loadAquarium();
   }));
+  loadBuyerTradeNotifications();
+}
+
+function loadBuyerTradeNotifications() {
+  const target = document.getElementById('buyerTradeNotice');
+  if (!target) return;
+  const user = activeUser();
+  const confirmed = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.buyerUid === user?.uid && item.status === 'confirmed' && item.meetingPlace);
+  target.innerHTML = confirmed.map(item => `<section class="buyer-trade-notice"><b>거래확정 · ${item.fish}</b><small>거래 장소: ${item.meetingPlace}</small><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small><button type="button" data-open-aquarium>시간 선택하기</button></section>`).join('');
+  target.hidden = !confirmed.length;
+  target.querySelectorAll('[data-open-aquarium]').forEach(button => button.addEventListener('click', () => { go('aquarium'); loadAquarium(); }));
 }
 
 document.querySelector('[data-go="purchase"]').addEventListener('click', loadSalesWithMenu);
@@ -1046,6 +1057,10 @@ roleNavigationStyle.textContent = `
   .discount-sale-card { border: 1px solid #f0c36e; background: #fffaf0; }
   .discount-badge { display: inline-block; margin-left: 6px; padding: 3px 6px; border-radius: 6px; background: #fff0cf; color: #a55c00; font-size: 10px; font-weight: 800; vertical-align: middle; }
   .discount-form-note { margin: 0 0 14px; padding: 11px; border-radius: 10px; background: #fff6df; color: #86510b; font-size: 11px; line-height: 1.55; }
+  .buyer-trade-notice { margin: 0 20px 13px; padding: 12px; border: 1px solid #9fd2b5; border-radius: 11px; background: #eef9f2; color: #216b4c; }
+  .buyer-trade-notice b, .buyer-trade-notice small { display: block; }
+  .buyer-trade-notice small { margin-top: 3px; font-size: 11px; }
+  .buyer-trade-notice button { margin-top: 9px; padding: 7px 9px; border: 0; border-radius: 7px; background: #25845e; color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 `;
 document.head.appendChild(roleNavigationStyle);
 
@@ -1057,7 +1072,7 @@ const buyerScreen = document.createElement('section');
 buyerScreen.id = 'buyer';
 buyerScreen.className = 'app-screen role-screen';
 buyerScreen.setAttribute('aria-label', '구매자');
-buyerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>BUYER SPACE</small><h2>구매자</h2></div><span></span></div><p class="role-intro">판매 상품과 재고를 확인하고<br />필요한 수산물을 구매 요청하세요.</p><div class="role-menu" id="buyerRoleMenu">${roleButton('🛒', '구매', '판매 상품 보기')}${roleButton('🐠', '수족관', '내 구매 요청')}${roleButton('▦', '재고', '판매 요청하기')}</div>`;
+buyerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>BUYER SPACE</small><h2>구매자</h2></div><span></span></div><p class="role-intro">판매 상품과 재고를 확인하고<br />필요한 수산물을 구매 요청하세요.</p><div id="buyerTradeNotice" hidden></div><div class="role-menu" id="buyerRoleMenu">${roleButton('🛒', '구매', '판매 상품 보기')}${roleButton('🐠', '수족관', '내 구매 요청')}${roleButton('▦', '재고', '판매 요청하기')}</div>`;
 document.querySelector('main').appendChild(buyerScreen);
 
 const sellerScreen = document.createElement('section');
@@ -1103,7 +1118,7 @@ document.querySelector('main').appendChild(bottomTabs);
 document.querySelectorAll('#homeRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['catch', 'price'][index]; go(screen); if (screen === 'catch') renderRegisteredInfo('catch'); }));
 document.querySelectorAll('#buyerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['purchase', 'aquarium', 'stock'][index]; go(screen); if (screen === 'purchase') loadSalesWithMenu(); if (screen === 'aquarium') loadAquarium(); if (screen === 'stock') renderRegisteredInfo('stock'); }));
 document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (isBuyerDemo()) { showToast('구매자 테스트 계정은 판매자 기능을 이용할 수 없습니다.'); return; } if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1 || index === 3) { const target = index === 1 ? 'sale' : 'discountSale'; if (!isSellerVerified()) { sellerGateTarget = target; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go(target); if (target === 'sale') loadSellerRequests(); return; } openSellerRequestManagement(); }));
-bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else go(tab); }));
+bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else { go(tab); if (tab === 'buyer') loadBuyerTradeNotifications(); } }));
 const initialScreen = document.querySelector('.app-screen.active')?.id;
 const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', discountSale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
 bottomTabs.hidden = !initialTab;
