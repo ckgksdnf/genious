@@ -127,6 +127,8 @@ visualStyle.textContent = `
   .direct-input[hidden] { display: none; }
   .minimum-order-note { color: #087f72 !important; font-weight: 700; }
   .registered-info { margin-top: 22px; padding-top: 16px; border-top: 2px solid #bcdfe9; }
+  .integrated-stock-info { margin: 0; padding: 0; border: 0; }
+  .integrated-stock-info .user-info-row { margin: 0; padding: 14px 0; border-radius: 0; border-bottom: 1px solid #d7e6ec; background: #fff; }
   .registered-info h3 { margin: 0 0 5px; color: #063d72; font-size: 14px; }
   .user-info-row { background: #f0fbff; padding: 12px 8px; border-radius: 10px; border-bottom: 0; margin-top: 7px; }
   .user-info-value { text-align: right; }
@@ -738,8 +740,8 @@ function renderRegisteredInfo(type) {
   });
   if (!relevantEntries.length) return;
   const panel = document.createElement('section');
-  panel.className = 'registered-info';
-  panel.innerHTML = `<h3>${type === 'stock' ? '판매 가능 재고' : '등록된 어획 정보'}</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-request="${item.id}">판매 요청</button>` : ''; const canManage = item.ownerUid === activeUser()?.uid; const manageActions = canManage ? `<div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div>` : ''; return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong>${stockRequest}${manageActions}</div></article>`; }).join('')}`;
+  panel.className = type === 'stock' ? 'registered-info integrated-stock-info' : 'registered-info';
+  panel.innerHTML = `${type === 'catch' ? '<h3>등록된 어획 정보</h3>' : ''}${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-request="${item.id}">판매 요청</button>` : ''; const canManage = item.ownerUid === activeUser()?.uid; const manageActions = canManage ? `<div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div>` : ''; return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location}${type === 'catch' ? ' · 직접 등록' : ''}</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong>${stockRequest}${manageActions}</div></article>`; }).join('')}`;
   list.appendChild(panel);
   panel.querySelectorAll('[data-edit-info]').forEach(button => button.addEventListener('click', () => openInfoEditor(button.dataset.editInfo)));
   panel.querySelectorAll('[data-cancel-info]').forEach(button => button.addEventListener('click', () => {
