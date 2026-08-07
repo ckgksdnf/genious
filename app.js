@@ -233,7 +233,11 @@ document.querySelector('#profile .logout-button').before(sellerInboundPanel);
 
 function renderSellerPurchaseRequests(target, compact = false) {
   const user = activeUser();
-  const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.sellerUid === user?.uid && (item.status || 'requested') !== 'cancelled');
+  const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
+    if ((item.status || 'requested') === 'cancelled') return false;
+    // 시연 계정은 같은 기기에서 들어온 요청을 모두 확인할 수 있게 합니다.
+    return item.sellerUid === user?.uid || (user?.uid === 'demo-test-id' && item.sellerUid);
+  });
   if (compact) target.hidden = !incoming.length;
   if (!incoming.length) {
     if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
@@ -245,6 +249,7 @@ function renderSellerPurchaseRequests(target, compact = false) {
     localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
     showToast('구매 요청을 수락했습니다.');
     loadSellerPurchaseRequests();
+    updateRequestNotifications();
   }));
   target.querySelectorAll('[data-approve-cancel]').forEach(button => button.addEventListener('click', () => {
     const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
@@ -255,12 +260,27 @@ function renderSellerPurchaseRequests(target, compact = false) {
     recordCancellation(request.buyerUid);
     showToast('취소 요청을 승인했습니다.');
     loadSellerPurchaseRequests();
+    updateRequestNotifications();
   }));
 }
 function loadSellerPurchaseRequests() {
   renderSellerPurchaseRequests(sellerInboundPanel, true);
   const managementList = document.getElementById('sellerRequestList');
   if (managementList) renderSellerPurchaseRequests(managementList);
+}
+function updateRequestNotifications() {
+  const user = activeUser();
+  const count = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
+    const status = item.status || 'requested';
+    const forSeller = item.sellerUid === user?.uid || (user?.uid === 'demo-test-id' && item.sellerUid);
+    return forSeller && (status === 'requested' || status === 'cancel_requested');
+  }).length;
+  const targets = [document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')];
+  targets.forEach(target => {
+    if (!target) return;
+    target.querySelector('.request-badge')?.remove();
+    if (count) target.insertAdjacentHTML('beforeend', `<i class="request-badge">${count > 9 ? '9+' : count}</i>`);
+  });
 }
 function openSellerRequestManagement() {
   if (!activeUser()) {
@@ -467,6 +487,7 @@ function loadAquarium() {
     recordCancellation(request.buyerUid);
     showToast('구매 요청이 취소되었습니다.');
     loadAquarium();
+    updateRequestNotifications();
   }));
   target.querySelectorAll('[data-request-cancel]').forEach(button => button.addEventListener('click', () => {
     const reason = window.prompt('취소 사유를 입력해 주세요.');
@@ -475,6 +496,7 @@ function loadAquarium() {
     localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
     showToast('판매자에게 취소 요청을 보냈습니다.');
     loadAquarium();
+    updateRequestNotifications();
   }));
 }
 
@@ -766,11 +788,13 @@ purchaseForm.addEventListener('submit', event => {
     price: selectedSale.price,
     quantity: Number(fields[0].value),
     when: fields[1].value,
+    saleId: selectedSale.id,
     buyerUid: activeUser()?.uid || 'local-user',
     sellerUid: selectedSale.sellerUid || 'local-seller',
     status: 'requested'
   });
   localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
+  updateRequestNotifications();
   purchaseForm.reset();
   purchaseForm.hidden = true;
   showToast('구매 요청이 완료되었습니다!');
@@ -853,6 +877,9 @@ roleNavigationStyle.textContent = `
   .bottom-tabs span { display: block; margin-bottom: 3px; font-size: 19px; line-height: 1; }
   .bottom-tabs button.active { color: #0877bb; }
   .bottom-tabs button.active span { transform: translateY(-1px); }
+  .role-menu button, .bottom-tabs button { position: relative; }
+  .request-badge { position: absolute; top: 7px; right: 10px; display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 12px; background: #e84d4d; color: #fff; font-size: 10px; font-style: normal; line-height: 1; }
+  .toast { z-index: 30; bottom: 92px; }
   #home { padding-bottom: 76px; }
   #home .role-menu { padding: 0; }
   .data-screen, .form-screen { padding-bottom: 88px; }
@@ -891,3 +918,4 @@ const initialScreen = document.querySelector('.app-screen.active')?.id;
 const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
 bottomTabs.hidden = !initialTab;
 if (initialTab) bottomTabs.querySelector(`[data-tab="${initialTab}"]`).classList.add('active');
+updateRequestNotifications();
