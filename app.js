@@ -188,6 +188,12 @@ function go(screen) {
   document.querySelectorAll('.app-screen').forEach(section => section.classList.remove('active'));
   document.getElementById('login').style.display = screen === 'login' ? '' : 'none';
   document.getElementById(screen).classList.add('active');
+  const tab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[screen];
+  const bottomTabs = document.querySelector('.bottom-tabs');
+  if (bottomTabs) {
+    bottomTabs.hidden = !tab;
+    bottomTabs.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
+  }
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -828,3 +834,60 @@ function requireSellerVerification(event, target) {
 document.querySelectorAll('[data-go="sale"]').forEach(button => button.addEventListener('click', event => requireSellerVerification(event, 'sale'), true));
 document.querySelector('#catch .icon-button').addEventListener('click', event => requireSellerVerification(event, 'register'), true);
 refreshSellerStatus();
+
+// 로그인 뒤에는 역할별 탭으로 기능을 나눠 보여 줍니다.
+const roleNavigationStyle = document.createElement('style');
+roleNavigationStyle.textContent = `
+  .role-screen { min-height: 100vh; padding-bottom: 94px; background: linear-gradient(180deg,#f3fbff,#fff 33%); }
+  .role-screen .role-intro { margin: 14px 22px 22px; color: #4c727f; font-size: 13px; line-height: 1.65; }
+  .role-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 20px 26px; }
+  .role-menu button { min-height: 120px; padding: 15px; border: 1px solid #b8dfea; border-radius: 13px; background: #e8f8fd; color: #063d72; text-align: left; cursor: pointer; box-shadow: 0 4px 10px #0b5b7a12; }
+  .role-menu button:nth-child(2n) { background: #d9f1fa; }
+  .role-menu button.seller-main { background: #063d72; color: #fff; }
+  .role-menu button.seller-main small { color: #c5edff; }
+  .role-menu .menu-icon { display: grid; place-items: center; width: 39px; height: 39px; margin-bottom: 9px; border-radius: 12px; background: #fff; color: #0877bb; font-size: 20px; }
+  .role-menu b { display: block; font-size: 15px; }
+  .role-menu small { display: block; margin-top: 4px; color: #5c8190; font-size: 10px; }
+  .bottom-tabs { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(4,1fr); width: min(480px,100%); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #c9e4ef; background: #fffefef5; box-shadow: 0 -5px 18px #063d7214; }
+  .bottom-tabs button { border: 0; background: transparent; color: #6b8792; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .bottom-tabs span { display: block; margin-bottom: 3px; font-size: 19px; line-height: 1; }
+  .bottom-tabs button.active { color: #0877bb; }
+  .bottom-tabs button.active span { transform: translateY(-1px); }
+  #home { padding-bottom: 76px; }
+  #home .role-menu { padding: 0; }
+  .data-screen, .form-screen { padding-bottom: 88px; }
+`;
+document.head.appendChild(roleNavigationStyle);
+
+const roleButton = (icon, title, detail, className = '') => `<button class="${className}"><span class="menu-icon">${icon}</span><b>${title}</b><small>${detail}</small></button>`;
+const homePanel = document.querySelector('#home .home-panel');
+homePanel.innerHTML = `<p class="demo-label">● 시연용 예시 데이터</p><h2>오늘 바다의 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '어획량', '오늘 들어온 양')}${roleButton('₩', '시세', '품목별 현재 가격')}</div>`;
+
+const buyerScreen = document.createElement('section');
+buyerScreen.id = 'buyer';
+buyerScreen.className = 'app-screen role-screen';
+buyerScreen.setAttribute('aria-label', '구매자');
+buyerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>BUYER SPACE</small><h2>구매자</h2></div><span></span></div><p class="role-intro">판매 상품과 재고를 확인하고<br />필요한 수산물을 구매 요청하세요.</p><div class="role-menu" id="buyerRoleMenu">${roleButton('🛒', '구매', '판매 상품 보기')}${roleButton('🐠', '수족관', '내 구매 요청')}${roleButton('▦', '재고', '판매 요청하기')}</div>`;
+document.querySelector('main').appendChild(buyerScreen);
+
+const sellerScreen = document.createElement('section');
+sellerScreen.id = 'seller';
+sellerScreen.className = 'app-screen role-screen';
+sellerScreen.setAttribute('aria-label', '판매자');
+sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}</div>`;
+document.querySelector('main').appendChild(sellerScreen);
+
+const bottomTabs = document.createElement('nav');
+bottomTabs.className = 'bottom-tabs';
+bottomTabs.setAttribute('aria-label', '하단 메뉴');
+bottomTabs.innerHTML = '<button data-tab="home"><span>⌂</span>홈</button><button data-tab="buyer"><span>🛒</span>구매자</button><button data-tab="seller"><span>⚓</span>판매자</button><button data-tab="profile"><span>👤</span>프로필</button>';
+document.querySelector('main').appendChild(bottomTabs);
+
+document.querySelectorAll('#homeRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['catch', 'price'][index]; go(screen); if (screen === 'catch') renderRegisteredInfo('catch'); }));
+document.querySelectorAll('#buyerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['purchase', 'aquarium', 'stock'][index]; go(screen); if (screen === 'purchase') loadSalesWithMenu(); if (screen === 'aquarium') loadAquarium(); if (screen === 'stock') renderRegisteredInfo('stock'); }));
+document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1) { if (!isSellerVerified()) { sellerGateTarget = 'sale'; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go('sale'); loadSellerRequests(); return; } openSellerRequestManagement(); }));
+bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else go(tab); }));
+const initialScreen = document.querySelector('.app-screen.active')?.id;
+const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
+bottomTabs.hidden = !initialTab;
+if (initialTab) bottomTabs.querySelector(`[data-tab="${initialTab}"]`).classList.add('active');
