@@ -43,13 +43,13 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
     ['우럭', '민락어민활어직판장', '민락활어센터', 110, 21200, 10],
     ['갑오징어', '부산공동어시장', '부산어시장중도매', 130, 16800, 10],
     ['멸치', '기장시장', '기장수산물', 260, 7200, 20],
-    ['갈치', '자갈치시장', '자갈치바다상회', 55, 7700, 5, true, '오늘 마감'],
-    ['고등어', '부산공동어시장', '남항수산', 80, 3900, 10, true, '내일 오전 마감']
+    ['갈치', '자갈치시장', '자갈치바다상회', 55, 262130, 5, true, '오늘 마감'],
+    ['고등어', '부산공동어시장', '남항수산', 80, 198040, 10, true, '내일 오전 마감']
   ].map(([fish, market, sellerEmail, quantity, price, minimumOrder, discounted = false, expires = ''], index) => ({
     id: `presentation-sale-${index + 1}`,
     sellerUid: 'demo-seller',
     sellerEmail,
-    fish, market, quantity, price, minimumOrder, discounted, expires
+    fish, market, quantity, price, minimumOrder, discounted, expires, priceType: discounted ? 'total' : 'unit'
   }));
   const seedInfo = [
     ['고등어', '부산 연안', '영도 앞바다', '부산공동어시장', 980, 320],
@@ -83,6 +83,13 @@ if (localStorage.getItem('singsing-demo-seller-ownership') !== '2026080736') {
   localStorage.setItem('singsing-sales', JSON.stringify(sales));
   localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
   localStorage.setItem('singsing-demo-seller-ownership', '2026080736');
+}
+
+if (localStorage.getItem('singsing-discount-total-migration') !== '2026080737') {
+  const referencePrices = { 갈치: 9532, 고등어: 4951 };
+  const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]').map(item => item.discounted && String(item.id).startsWith('presentation-sale-') ? { ...item, price: Math.round((referencePrices[item.fish] || 0) * Number(item.quantity) * 0.5), priceType: 'total' } : item);
+  localStorage.setItem('singsing-sales', JSON.stringify(sales));
+  localStorage.setItem('singsing-discount-total-migration', '2026080737');
 }
 
 function addDirectInputOptions(formId) {
@@ -500,8 +507,9 @@ async function loadHistory() {
   try { const snapshot = await getDocs(query(collection(db, 'transactions'), where('uid', '==', auth.currentUser.uid))); const rows = snapshot.docs.map(doc => doc.data()).sort((a,b)=>(b.createdAt?.seconds || 0)-(a.createdAt?.seconds || 0)); target.innerHTML = rows.length ? rows.map(row => `<article class="history-item"><div><b>${row.type === 'purchase' ? '구매 신청' : '정보 등록'}</b><small>${row.details}</small></div><time>${row.createdAt ? new Date(row.createdAt.seconds * 1000).toLocaleDateString('ko-KR') : '방금 전'}</time></article>`).join('') : '<p class="empty-history">아직 거래 내역이 없습니다.</p>'; } catch { target.innerHTML = '<p class="empty-history">거래 내역을 불러오지 못했습니다.</p>'; }
 }
 let selectedSale = null;
-async function loadSales() { const target=document.getElementById('saleList'); const rows=JSON.parse(localStorage.getItem('singsing-sales')||'[]'); target.innerHTML=rows.length?rows.map(s=>`<article class="sale-card"><div><b>${s.fish}</b><small>${s.market} · 판매자 ${s.sellerEmail}</small><strong>${s.quantity}kg · ${Number(s.price).toLocaleString('ko-KR')}원/kg</strong></div><button data-sale="${s.id}">구매 요청</button></article>`).join(''):'<p class="empty-sale">아직 판매 등록된 상품이 없습니다.</p>'; window.saleRows=rows; }
-document.getElementById('saleList').addEventListener('click',e=>{if(!e.target.dataset.sale)return; selectedSale=window.saleRows.find(x=>x.id===e.target.dataset.sale); document.getElementById('selectedSale').textContent=`선택 상품: ${selectedSale.fish} · ${selectedSale.quantity}kg · ${Number(selectedSale.price).toLocaleString('ko-KR')}원/kg`; document.getElementById('purchaseForm').hidden=false; document.getElementById('purchaseForm').scrollIntoView({behavior:'smooth'});});
+function salePriceText(sale) { return sale.discounted && sale.priceType === 'total' ? `할인 총액 ${Number(sale.price).toLocaleString('ko-KR')}원` : `${Number(sale.price).toLocaleString('ko-KR')}원/kg`; }
+async function loadSales() { const target=document.getElementById('saleList'); const rows=JSON.parse(localStorage.getItem('singsing-sales')||'[]'); target.innerHTML=rows.length?rows.map(s=>`<article class="sale-card"><div><b>${s.fish}</b><small>${s.market} · 판매자 ${s.sellerEmail}</small><strong>${s.quantity}kg · ${salePriceText(s)}</strong></div><button data-sale="${s.id}">구매 요청</button></article>`).join(''):'<p class="empty-sale">아직 판매 등록된 상품이 없습니다.</p>'; window.saleRows=rows; }
+document.getElementById('saleList').addEventListener('click',e=>{if(!e.target.dataset.sale)return; selectedSale=window.saleRows.find(x=>x.id===e.target.dataset.sale); document.getElementById('selectedSale').textContent=`선택 상품: ${selectedSale.fish} · ${selectedSale.quantity}kg · ${salePriceText(selectedSale)}`; document.getElementById('purchaseForm').hidden=false; document.getElementById('purchaseForm').scrollIntoView({behavior:'smooth'});});
 document.querySelector('[data-go="purchase"]').addEventListener('click',loadSales);
 document.getElementById('saleForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -544,7 +552,7 @@ async function loadSalesWithMenu() {
   const target = document.getElementById('saleList');
   const rows = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
   target.innerHTML = rows.length
-    ? rows.map(s => `<article class="sale-card ${s.discounted ? 'discount-sale-card' : ''}"><div><b>${s.fish}</b>${s.discounted ? '<span class="discount-badge">폐기 예정 할인</span>' : ''}<small>${s.market} · 판매자 ${s.sellerEmail}${s.discounted ? ` · ${s.expires}` : ''}</small><strong>${s.quantity}kg · ${Number(s.price).toLocaleString('ko-KR')}원/kg</strong></div><div class="card-actions"><button data-sale="${s.id}">구매 요청</button><button class="more-button" data-cancel-sale="${s.id}" aria-label="판매 등록 메뉴">⋯</button></div></article>`).join('')
+    ? rows.map(s => `<article class="sale-card ${s.discounted ? 'discount-sale-card' : ''}"><div><b>${s.fish}</b>${s.discounted ? '<span class="discount-badge">폐기 예정 할인</span>' : ''}<small>${s.market} · 판매자 ${s.sellerEmail}${s.discounted ? ` · ${s.expires}` : ''}</small><strong>${s.quantity}kg · ${salePriceText(s)}</strong></div><div class="card-actions"><button data-sale="${s.id}">구매 요청</button><button class="more-button" data-cancel-sale="${s.id}" aria-label="판매 등록 메뉴">⋯</button></div></article>`).join('')
     : '<p class="empty-sale">아직 판매 등록된 상품이 없습니다.</p>';
   window.saleRows = rows;
   target.querySelectorAll('[data-sale]').forEach(button => {
@@ -601,7 +609,7 @@ function loadAquarium() {
       const reason = status === 'cancel_requested' ? `<small>취소 사유: ${item.cancellationReason}</small>` : '';
       const trade = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래확정</b><small>거래 장소: ${item.meetingPlace}</small><label>거래 시간 선택<select data-trade-time-select="${item.id}"><option value="">시간 후보를 선택하세요</option>${(item.meetingTimes || []).map(time => `<option value="${time}" ${item.selectedMeetingTime === time ? 'selected' : ''}>${time}</option>`).join('')}</select></label>${item.selectedMeetingTime ? `<small>선택한 시간: ${item.selectedMeetingTime}</small>` : ''}</div>` : '';
       const statusText = status === 'confirmed' && !item.meetingPlace ? '거래 정보 설정 중' : purchaseStatusText(status);
-      return `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${Number(item.price).toLocaleString('ko-KR')}원/kg</strong>${trade}${reason}</div><div class="card-actions"><span class="request-state">${statusText}</span>${action}</div></article>`;
+      return `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${salePriceText(item)}</strong>${trade}${reason}</div><div class="card-actions"><span class="request-state">${statusText}</span>${action}</div></article>`;
     }).join('')
     : '<p class="empty-sale">아직 구매 요청한 상품이 없습니다.</p>';
   target.querySelectorAll('[data-cancel-request]').forEach(button => button.addEventListener('click', () => {
@@ -670,7 +678,7 @@ document.getElementById('saleList').addEventListener('click', event => {
   if (!sale) return;
   selectedSale = sale;
   const minimumOrder = sale.minimumOrder || 1;
-  document.getElementById('selectedSale').textContent = `선택 상품: ${sale.fish} · ${sale.quantity}kg · 최소 주문 ${minimumOrder}kg`;
+  document.getElementById('selectedSale').textContent = `선택 상품: ${sale.fish} · ${sale.quantity}kg · ${salePriceText(sale)} · 최소 주문 ${minimumOrder}kg`;
   document.querySelector('#purchaseForm input[type="number"]').min = minimumOrder;
   document.querySelector('#purchaseForm input[type="number"]').placeholder = `최소 ${minimumOrder}kg`;
 });
@@ -972,6 +980,8 @@ purchaseForm.addEventListener('submit', event => {
     fish: selectedSale.fish,
     market: selectedSale.market,
     price: selectedSale.price,
+    priceType: selectedSale.priceType,
+    discounted: selectedSale.discounted,
     quantity: Number(fields[0].value),
     when: fields[1].value,
     saleId: selectedSale.id,
@@ -1121,21 +1131,26 @@ discountSaleScreen.id = 'discountSale';
 discountSaleScreen.className = 'app-screen form-screen';
 discountSaleScreen.setAttribute('aria-label', '폐기 예정 할인 등록');
 const marketOptions = ['부산공동어시장', '자갈치시장', '신동아수산물종합시장', '민락어민활어직판장', '기장시장', '대변항 수산시장', '다대포수산시장', '명지시장'];
-discountSaleScreen.innerHTML = `<div class="screen-header"><button class="back" data-go="seller">‹</button><div><small>LAST-CHANCE SALE</small><h2>폐기 예정 할인 등록</h2></div><span></span></div><p class="form-intro">신선도 유지 기간이 얼마 남지 않은 상품을<br />합리적인 가격에 판매해 보세요.</p><form id="discountSaleForm"><p class="discount-form-note">기준 시세 이하의 가격만 등록할 수 있습니다. 구매자는 할인 상품을 별도 표시로 확인합니다.</p><label>판매 시장<select required>${marketOptions.map(item => `<option value="${item}">${item}</option>`).join('')}</select></label><label>수산물 종류<select id="discountFish" required>${fishData.map(item => `<option value="${item.name}">${item.name}</option>`).join('')}</select></label><label>판매 수량<input id="discountQuantity" type="number" min="1" step="1" required /><small class="single-unit">kg</small></label><label>할인 판매 가격<input id="discountPrice" type="number" min="1" step="1" required /><small class="single-unit">원/kg</small></label><label>판매 기한<select id="discountExpiry"><option value="오늘 마감">오늘 마감</option><option value="내일 오전 마감">내일 오전 마감</option><option value="내일 마감">내일 마감</option></select></label><button class="primary-button" type="submit">할인 상품 등록하기 <span>→</span></button></form>`;
+discountSaleScreen.innerHTML = `<div class="screen-header"><button class="back" data-go="seller">‹</button><div><small>LAST-CHANCE SALE</small><h2>폐기 예정 할인 등록</h2></div><span></span></div><p class="form-intro">신선도 유지 기간이 얼마 남지 않은 상품을<br />합리적인 가격에 판매해 보세요.</p><form id="discountSaleForm"><p class="discount-form-note">기준 시세 × 판매 수량의 50%가 할인 총액으로 자동 계산됩니다.</p><label>판매 시장<select required>${marketOptions.map(item => `<option value="${item}">${item}</option>`).join('')}</select></label><label>수산물 종류<select id="discountFish" required>${fishData.map(item => `<option value="${item.name}">${item.name}</option>`).join('')}</select></label><label>판매 수량<input id="discountQuantity" type="number" min="1" step="1" required /><small class="single-unit">kg</small></label><label>할인 판매 가격(총액)<input id="discountPrice" type="number" min="1" step="1" readonly required /><small class="single-unit">원</small></label><label>판매 기한<select id="discountExpiry"><option value="오늘 마감">오늘 마감</option><option value="내일 오전 마감">내일 오전 마감</option><option value="내일 마감">내일 마감</option></select></label><button class="primary-button" type="submit">할인 상품 등록하기 <span>→</span></button></form>`;
 document.querySelector('main').appendChild(discountSaleScreen);
 discountSaleScreen.querySelector('[data-go="seller"]').addEventListener('click', () => go('seller'));
-discountSaleScreen.querySelector('#discountFish').addEventListener('change', event => {
-  const fish = fishData.find(item => item.name === event.target.value);
-  discountSaleScreen.querySelector('#discountPrice').max = String(fish?.price || 999999);
-});
+function updateDiscountTotal() {
+  const fish = fishData.find(item => item.name === discountSaleScreen.querySelector('#discountFish').value);
+  const quantity = Number(discountSaleScreen.querySelector('#discountQuantity').value);
+  discountSaleScreen.querySelector('#discountPrice').value = fish?.price > 0 && quantity > 0 ? String(Math.round(fish.price * quantity * 0.5)) : '';
+}
+discountSaleScreen.querySelector('#discountFish').addEventListener('change', updateDiscountTotal);
+discountSaleScreen.querySelector('#discountQuantity').addEventListener('input', updateDiscountTotal);
 discountSaleScreen.querySelector('#discountSaleForm').addEventListener('submit', event => {
   event.preventDefault();
   const fish = fishData.find(item => item.name === discountSaleScreen.querySelector('#discountFish').value);
   const price = Number(discountSaleScreen.querySelector('#discountPrice').value);
   const referencePrice = fish?.price || 0;
-  if (referencePrice > 0 && price > referencePrice) { showToast(`기준 시세 ${number(referencePrice)}원/kg 이하로 입력해 주세요.`); return; }
+  const quantity = Number(discountSaleScreen.querySelector('#discountQuantity').value);
+  const expectedTotal = Math.round(referencePrice * quantity * 0.5);
+  if (!expectedTotal || price !== expectedTotal) { showToast('판매 수량을 입력하면 할인 총액이 자동 계산됩니다.'); return; }
   const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
-  sales.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), sellerUid: activeUser()?.uid || 'local-user', sellerEmail: activeUser()?.email || '판매자', market: discountSaleScreen.querySelector('select').value, fish: fish?.name, quantity: Number(discountSaleScreen.querySelector('#discountQuantity').value), price, minimumOrder: 1, discounted: true, expires: discountSaleScreen.querySelector('#discountExpiry').value });
+  sales.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), sellerUid: activeUser()?.uid || 'local-user', sellerEmail: activeUser()?.email || '판매자', market: discountSaleScreen.querySelector('select').value, fish: fish?.name, quantity, price, priceType: 'total', referencePrice, minimumOrder: 1, discounted: true, expires: discountSaleScreen.querySelector('#discountExpiry').value });
   localStorage.setItem('singsing-sales', JSON.stringify(sales));
   discountSaleScreen.querySelector('#discountSaleForm').reset();
   showToast('폐기 예정 할인 상품이 등록되었습니다.');
