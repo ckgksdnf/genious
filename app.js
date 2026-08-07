@@ -232,11 +232,8 @@ sellerInboundPanel.hidden = true;
 document.querySelector('#profile .logout-button').before(sellerInboundPanel);
 
 function renderSellerPurchaseRequests(target, compact = false) {
-  const user = activeUser();
   const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
-    if ((item.status || 'requested') === 'cancelled') return false;
-    // 시연 계정은 같은 기기에서 들어온 요청을 모두 확인할 수 있게 합니다.
-    return item.sellerUid === user?.uid || (user?.uid === 'demo-test-id' && item.sellerUid);
+    return (item.status || 'requested') !== 'cancelled';
   });
   if (compact) target.hidden = !incoming.length;
   if (!incoming.length) {
@@ -269,11 +266,9 @@ function loadSellerPurchaseRequests() {
   if (managementList) renderSellerPurchaseRequests(managementList);
 }
 function updateRequestNotifications() {
-  const user = activeUser();
   const count = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
     const status = item.status || 'requested';
-    const forSeller = item.sellerUid === user?.uid || (user?.uid === 'demo-test-id' && item.sellerUid);
-    return forSeller && (status === 'requested' || status === 'cancel_requested');
+    return status === 'requested' || status === 'cancel_requested';
   }).length;
   const targets = [document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')];
   targets.forEach(target => {
