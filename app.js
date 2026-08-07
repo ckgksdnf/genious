@@ -14,12 +14,12 @@ function activeUser() {
 }
 
 // 역할 분리 시연을 위해 이전 구매 요청 기록은 한 번만 초기화합니다.
-if (localStorage.getItem('singsing-demo-role-reset') !== '2026080738') {
+if (localStorage.getItem('singsing-demo-role-reset') !== '2026080739') {
   localStorage.removeItem('singsing-purchase-requests');
   localStorage.removeItem('singsing-my-request-ids-demo-buyer');
   localStorage.removeItem('singsing-my-request-ids-demo-seller');
   localStorage.removeItem('singsing-cancellation-log-demo-buyer');
-  localStorage.setItem('singsing-demo-role-reset', '2026080738');
+  localStorage.setItem('singsing-demo-role-reset', '2026080739');
 }
 if (localStorage.getItem('singsing-info-owner-migration') !== '2026080722') {
   const existingInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').map(item => ({ ...item, ownerUid: item.ownerUid || 'demo-seller' }));
