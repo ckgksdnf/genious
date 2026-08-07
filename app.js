@@ -241,6 +241,12 @@ aquariumButton.innerHTML = '<span class="menu-icon">🐠</span><b>수족관</b><
 aquariumButton.addEventListener('click', () => { go('aquarium'); loadAquarium(); });
 document.querySelector('.main-menu').appendChild(aquariumButton);
 
+const sellerVerifyButton = document.createElement('button');
+sellerVerifyButton.className = 'seller-verify-menu';
+sellerVerifyButton.innerHTML = '<span class="menu-icon">✓</span><b>판매자 인증</b><small>판매 등록 전 확인</small>';
+sellerVerifyButton.addEventListener('click', () => { sellerGateTarget = 'home'; go('sellerVerify'); });
+document.querySelector('.main-menu').appendChild(sellerVerifyButton);
+
 const aquariumScreen = document.createElement('section');
 aquariumScreen.id = 'aquarium';
 aquariumScreen.className = 'app-screen form-screen aquarium-screen';
@@ -703,11 +709,12 @@ function requireSellerVerification(event, target) {
   event.stopImmediatePropagation();
   sellerGateTarget = target;
   if (!activeUser()) {
-    showToast('판매자 인증 전 로그인이 필요합니다.');
+    showToast('로그인 후 판매자 인증을 해야합니다.');
     go('login');
     return;
   }
   refreshSellerStatus();
+  showToast('판매자 인증을 해야합니다.');
   go('sellerVerify');
 }
 document.querySelectorAll('[data-go="sale"]').forEach(button => button.addEventListener('click', event => requireSellerVerification(event, 'sale'), true));
