@@ -331,7 +331,7 @@ function renderSellerPurchaseRequests(target, compact = false) {
     if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
     return;
   }
-  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>거래 장소와 시간 후보를 설정한 뒤 거래를 확정합니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const needsTradeSetup = status === 'requested' || (status === 'confirmed' && !item.meetingPlace); const action = needsTradeSetup ? `<button data-open-trade-setup="${item.id}">${status === 'confirmed' ? '거래 정보 설정' : '구매 요청 수락'}</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">거래 확정</span>'; const summary = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래 장소: ${item.meetingPlace}</b><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small></div>` : ''; const statusText = status === 'confirmed' && !item.meetingPlace ? '거래 정보 설정 필요' : purchaseStatusText(status); return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · 구매 희망: ${item.when || '미입력'} · ${statusText}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small>${summary}</div>${action}</article>`; }).join('')}`;
+  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>거래 장소와 시간 후보를 설정한 뒤 거래를 확정합니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const needsTradeSetup = status === 'requested' || (status === 'confirmed' && !item.meetingPlace); const action = needsTradeSetup ? `<button data-open-trade-setup="${item.id}">${status === 'confirmed' ? '거래 정보 설정' : '구매 요청 수락'}</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">거래 확정</span>'; const selectedTime = item.selectedMeetingTime ? `<small>구매자 선택 시간: ${item.selectedMeetingTime}</small>` : ''; const summary = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래 장소: ${item.meetingPlace}</b><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small>${selectedTime}</div>` : ''; const statusText = status === 'confirmed' && !item.meetingPlace ? '거래 정보 설정 필요' : purchaseStatusText(status); return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · 구매 희망: ${item.when || '미입력'} · ${statusText}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small>${summary}</div>${action}</article>`; }).join('')}`;
   target.querySelectorAll('[data-open-trade-setup]').forEach(button => button.addEventListener('click', () => {
     const row = button.closest('.seller-request-row');
     if (row.querySelector('.trade-setup-form')) return;
@@ -344,7 +344,7 @@ function renderSellerPurchaseRequests(target, compact = false) {
       const meetingPlace = form.elements.place.value.trim();
       const meetingTimes = [form.elements.time1.value.trim(), form.elements.time2.value.trim(), form.elements.time3.value.trim()];
       if (!meetingPlace || meetingTimes.some(value => !value)) return;
-      const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === form.dataset.tradeRequest ? { ...item, status: 'confirmed', meetingPlace, meetingTimes } : item);
+      const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === form.dataset.tradeRequest ? { ...item, status: 'confirmed', meetingPlace, meetingTimes, buyerTradeSeen: false } : item);
       localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
       showToast('거래확정! 구매자에게 거래 장소와 시간 후보가 전달되었습니다.');
       loadSellerPurchaseRequests();
@@ -364,22 +364,29 @@ function renderSellerPurchaseRequests(target, compact = false) {
   }));
 }
 function loadSellerPurchaseRequests() {
+  const user = activeUser();
+  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const markedRead = requests.map(item => item.sellerUid === user?.uid && item.selectedMeetingTime && !item.sellerTimeSeen ? { ...item, sellerTimeSeen: true } : item);
+  if (JSON.stringify(markedRead) !== JSON.stringify(requests)) localStorage.setItem('singsing-purchase-requests', JSON.stringify(markedRead));
   renderSellerPurchaseRequests(sellerInboundPanel, true);
   const managementList = document.getElementById('sellerRequestList');
   if (managementList) renderSellerPurchaseRequests(managementList);
 }
 function updateRequestNotifications() {
   const user = activeUser();
-  const count = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
+  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const sellerCount = requests.filter(item => {
     const status = item.status || 'requested';
-    return item.sellerUid === user?.uid && (status === 'requested' || status === 'cancel_requested');
+    return item.sellerUid === user?.uid && (status === 'requested' || status === 'cancel_requested' || (status === 'confirmed' && item.selectedMeetingTime && !item.sellerTimeSeen));
   }).length;
-  const targets = [document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')];
-  targets.forEach(target => {
+  const buyerCount = requests.filter(item => item.buyerUid === user?.uid && item.status === 'confirmed' && item.meetingPlace && !item.buyerTradeSeen).length;
+  const setBadge = (targets, count) => targets.forEach(target => {
     if (!target) return;
     target.querySelector('.request-badge')?.remove();
     if (count) target.insertAdjacentHTML('beforeend', `<i class="request-badge">${count > 9 ? '9+' : count}</i>`);
   });
+  setBadge([document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')], sellerCount);
+  setBadge([document.querySelector('#buyerRoleMenu button:nth-child(2)'), document.querySelector('.bottom-tabs [data-tab="buyer"]')], buyerCount);
 }
 function openSellerRequestManagement() {
   if (isBuyerDemo()) {
@@ -615,7 +622,7 @@ function loadAquarium() {
   target.querySelectorAll('[data-trade-time-select]').forEach(select => select.addEventListener('change', event => {
     const selectedMeetingTime = event.currentTarget.value;
     if (!selectedMeetingTime) return;
-    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === event.currentTarget.dataset.tradeTimeSelect ? { ...item, selectedMeetingTime } : item);
+    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === event.currentTarget.dataset.tradeTimeSelect ? { ...item, selectedMeetingTime, sellerTimeSeen: false } : item);
     localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
     showToast('거래 시간을 선택했습니다. 판매자에게 전달됩니다.');
     loadAquarium();
@@ -630,6 +637,9 @@ function loadBuyerTradeNotifications() {
   const confirmed = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.buyerUid === user?.uid && item.status === 'confirmed' && item.meetingPlace);
   target.innerHTML = confirmed.map(item => `<section class="buyer-trade-notice"><b>거래확정 · ${item.fish}</b><small>거래 장소: ${item.meetingPlace}</small><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small><button type="button" data-open-aquarium>시간 선택하기</button></section>`).join('');
   target.hidden = !confirmed.length;
+  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const markedRead = requests.map(item => item.buyerUid === user?.uid && item.status === 'confirmed' && item.meetingPlace && !item.buyerTradeSeen ? { ...item, buyerTradeSeen: true } : item);
+  if (JSON.stringify(markedRead) !== JSON.stringify(requests)) { localStorage.setItem('singsing-purchase-requests', JSON.stringify(markedRead)); updateRequestNotifications(); }
   target.querySelectorAll('[data-open-aquarium]').forEach(button => button.addEventListener('click', () => { go('aquarium'); loadAquarium(); }));
 }
 
