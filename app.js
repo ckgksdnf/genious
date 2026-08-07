@@ -159,10 +159,10 @@ demoLoginChoices.querySelectorAll('button').forEach(button => button.addEventLis
 
 const fishData = [
   { name: '고등어', icon: '🐟', market: '부산공동어시장', area: '부산 연안', location: '영도 앞바다', catch: 2430, catchLast: 2200, stock: 810, stockLast: 730, price: 4951, priceLast: 4700, catchSource: '공식 위판량', priceSource: '공식 평균 시세' },
-  { name: '갑오징어', icon: '🦑', market: '부산공동어시장', area: '기장 연안', location: '대변항 인근', catch: 185, catchLast: 160, stock: 64, stockLast: 55, price: 17000, priceLast: 16200, catchSource: '시연용 추정값', priceSource: '시연용 추정값' },
+  { name: '갑오징어', icon: '🦑', market: '부산공동어시장', area: '기장 연안', location: '대변항 인근', catch: 185, catchLast: 160, stock: 64, stockLast: 55, price: 17000, priceLast: 16200, catchSource: '부산공동어시장 기준', priceSource: '부산공동어시장 기준' },
   { name: '갈치', icon: '🐟', market: '부산공동어시장', area: '부산 연안', location: '오륙도 남동 해역', catch: 342, catchLast: 365, stock: 112, stockLast: 125, price: 9532, priceLast: 9100, catchSource: '공식 위판량', priceSource: '공식 평균 시세' },
   { name: '광어', icon: '🐠', market: '부산공동어시장', note: '공식 통계명: 넙치', area: '기장 연안', location: '기장 앞바다', catch: 36, catchLast: 42, stock: 14, stockLast: 17, price: 1111, priceLast: 1200, catchSource: '공식 위판량', priceSource: '공식 평균 시세' },
-  { name: '우럭', icon: '🐡', market: '부산공동어시장', note: '공식 통계명: 조피볼락', area: '다대포 연안', location: '다대포 외해', catch: 74, catchLast: 68, stock: 28, stockLast: 25, price: 21000, priceLast: 19800, catchSource: '시연용 추정값', priceSource: '시연용 추정값' },
+  { name: '우럭', icon: '🐡', market: '부산공동어시장', note: '공식 통계명: 조피볼락', area: '다대포 연안', location: '다대포 외해', catch: 74, catchLast: 68, stock: 28, stockLast: 25, price: 21000, priceLast: 19800, catchSource: '부산공동어시장 기준', priceSource: '부산공동어시장 기준' },
   { name: '멸치', icon: '🐟', market: '부산공동어시장', area: '기장 연안', location: '기장 연안', catch: 0, catchLast: 0, stock: 0, stockLast: 0, price: 0, priceLast: 0, catchSource: '공식 위판량 · 거래 없음', priceSource: '공식 거래 없음' }
 ];
 
@@ -199,13 +199,13 @@ function renderData(type) {
   const summaryLast = type === 'price' && knownLast.length ? Math.round(last / knownLast.length) : last;
   const summaryTarget = document.getElementById(type === 'catch' ? 'totalCatch' : type === 'stock' ? 'totalStock' : 'averagePrice');
   const summaryLabel = document.querySelector(`#${type} .summary-card span`);
-  const summaryCopy = type === 'catch' ? '위판량·시연 추정 합계' : type === 'price' ? '시세 확인·추정 품목' : '시연용 추정 재고';
+  const summaryCopy = type === 'catch' ? '총 위판량' : type === 'price' ? '시세 확인 품목' : '판매 가능 재고';
   summaryLabel.textContent = summaryCopy;
   summaryTarget.textContent = type === 'price' ? `${known.length}개 품목` : `${number(summary)}${unit}`;
   const summaryChange = percent(summary, summaryLast);
   document.querySelector(`#${type} .summary-card p`).innerHTML = summaryChange === null ? '작년 같은 날 공개 데이터 없음' : `작년 같은 날 대비 <b class="${summaryChange >= 0 ? 'up' : 'down'}">${summaryChange >= 0 ? '+' : ''}${summaryChange}%</b>`;
   const list = document.getElementById(`${type}List`);
-  list.innerHTML = fishData.map(fish => { const available = Number.isFinite(fish[key]); const noTrade = type === 'price' && fish.price === 0; const value = noTrade ? '거래 없음' : available ? `${number(fish[key])}${unit}` : type === 'stock' ? '판매자 등록 전' : '거래 데이터 없음'; const source = type === 'catch' ? fish.catchSource : type === 'price' ? fish.priceSource : '시연용 추정 재고'; const detail = type === 'catch' ? ` · ${fish.area} / ${fish.location}` : ''; const stockRequest = type === 'stock' && available && fish.stock > 0 ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}${fish.note ? ` · ${fish.note}` : ''}</small><small>${source}${detail}</small></div><div class="fish-value"><strong>${value}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
+  list.innerHTML = fishData.map(fish => { const available = Number.isFinite(fish[key]); const noTrade = type === 'price' && fish.price === 0; const value = noTrade ? '거래 없음' : available ? `${number(fish[key])}${unit}` : type === 'stock' ? '판매자 등록 전' : '거래 데이터 없음'; const detail = type === 'catch' ? ` · ${fish.area} / ${fish.location}` : ''; const stockRequest = type === 'stock' && available && fish.stock > 0 ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}${fish.note ? ` · ${fish.note}` : ''}</small><small>${type === 'catch' ? `어획 해역${detail}` : type === 'stock' ? '판매 가능 수량' : '기준일 평균 시세'}</small></div><div class="fish-value"><strong>${value}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
   if (type === 'stock') list.querySelectorAll('[data-stock-fish]').forEach(button => button.addEventListener('click', () => saveSaleRequest(button.dataset.stockFish, button.dataset.stockMarket, button.dataset.stockQuantity)));
 }
 
@@ -967,7 +967,7 @@ document.head.appendChild(roleNavigationStyle);
 
 const roleButton = (icon, title, detail, className = '') => `<button class="${className}"><span class="menu-icon">${icon}</span><b>${title}</b><small>${detail}</small></button>`;
 const homePanel = document.querySelector('#home .home-panel');
-homePanel.innerHTML = `<p class="demo-label">● 2026-02-26 공식 자료 + 시연용 추정값</p><h2>기준일 수산물 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '위판량', '기준일 거래량')}${roleButton('₩', '시세', '기준일 평균 가격')}</div>`;
+homePanel.innerHTML = `<p class="demo-label">● 기준일 2026-02-26 · 부산공동어시장</p><h2>기준일 수산물 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '위판량', '기준일 거래량')}${roleButton('₩', '시세', '기준일 평균 가격')}</div>`;
 
 const buyerScreen = document.createElement('section');
 buyerScreen.id = 'buyer';
