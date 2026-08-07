@@ -868,6 +868,7 @@ roleNavigationStyle.textContent = `
   .role-menu b { display: block; font-size: 15px; }
   .role-menu small { display: block; margin-top: 4px; color: #5c8190; font-size: 10px; }
   .bottom-tabs { position: fixed; z-index: 20; left: 50%; bottom: 0; transform: translateX(-50%); display: grid; grid-template-columns: repeat(4,1fr); width: min(480px,100%); padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid #c9e4ef; background: #fffefef5; box-shadow: 0 -5px 18px #063d7214; }
+  .bottom-tabs[hidden] { display: none; }
   .bottom-tabs button { border: 0; background: transparent; color: #6b8792; font-size: 10px; font-weight: 700; cursor: pointer; }
   .bottom-tabs span { display: block; margin-bottom: 3px; font-size: 19px; line-height: 1; }
   .bottom-tabs button.active { color: #0877bb; }
