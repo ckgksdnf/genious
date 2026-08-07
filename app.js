@@ -47,7 +47,7 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
     ['고등어', '부산공동어시장', '남항수산', 80, 3900, 10, true, '내일 오전 마감']
   ].map(([fish, market, sellerEmail, quantity, price, minimumOrder, discounted = false, expires = ''], index) => ({
     id: `presentation-sale-${index + 1}`,
-    sellerUid: `presentation-seller-${index + 1}`,
+    sellerUid: 'demo-seller',
     sellerEmail,
     fish, market, quantity, price, minimumOrder, discounted, expires
   }));
@@ -74,6 +74,15 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
   localStorage.setItem('singsing-sales', JSON.stringify([...currentSales.filter(item => !String(item.id).startsWith('presentation-sale-')), ...seedSales]));
   localStorage.setItem('singsing-info-registrations', JSON.stringify([...currentInfo.filter(item => !String(item.id).startsWith('presentation-info-')), ...seedInfo]));
   localStorage.setItem('singsing-presentation-seed', '2026080729');
+}
+
+// 발표용 상품은 테스트 판매자 계정에서 요청·거래확정 흐름을 시연할 수 있게 연결합니다.
+if (localStorage.getItem('singsing-demo-seller-ownership') !== '2026080736') {
+  const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]').map(item => String(item.id).startsWith('presentation-sale-') ? { ...item, sellerUid: 'demo-seller' } : item);
+  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => String(item.saleId).startsWith('presentation-sale-') ? { ...item, sellerUid: 'demo-seller' } : item);
+  localStorage.setItem('singsing-sales', JSON.stringify(sales));
+  localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
+  localStorage.setItem('singsing-demo-seller-ownership', '2026080736');
 }
 
 function addDirectInputOptions(formId) {
@@ -643,6 +652,16 @@ function loadBuyerTradeNotifications() {
   target.querySelectorAll('[data-open-aquarium]').forEach(button => button.addEventListener('click', () => { go('aquarium'); loadAquarium(); }));
 }
 
+function loadSellerTradeNotifications() {
+  const target = document.getElementById('sellerTradeNotice');
+  if (!target) return;
+  const user = activeUser();
+  const selections = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.sellerUid === user?.uid && item.status === 'confirmed' && item.selectedMeetingTime);
+  target.innerHTML = selections.map(item => `<section class="seller-trade-notice"><b>새 거래 시간 선택 · ${item.fish}</b><small>구매자 선택 시간: ${item.selectedMeetingTime}</small><small>거래 장소: ${item.meetingPlace || '미입력'}</small><button type="button" data-open-request-manage>구매 요청 관리에서 보기</button></section>`).join('');
+  target.hidden = !selections.length;
+  target.querySelectorAll('[data-open-request-manage]').forEach(button => button.addEventListener('click', () => openSellerRequestManagement()));
+}
+
 document.querySelector('[data-go="purchase"]').addEventListener('click', loadSalesWithMenu);
 
 document.getElementById('saleList').addEventListener('click', event => {
@@ -982,6 +1001,7 @@ function setProfile(id) {
   document.getElementById('profileId').textContent = id;
   refreshSellerStatus();
   updateRequestNotifications();
+  loadSellerTradeNotifications();
 }
 
 document.getElementById('loginForm').addEventListener('submit', event => {
@@ -1071,6 +1091,10 @@ roleNavigationStyle.textContent = `
   .buyer-trade-notice b, .buyer-trade-notice small { display: block; }
   .buyer-trade-notice small { margin-top: 3px; font-size: 11px; }
   .buyer-trade-notice button { margin-top: 9px; padding: 7px 9px; border: 0; border-radius: 7px; background: #25845e; color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .seller-trade-notice { margin: 0 20px 13px; padding: 12px; border: 1px solid #9ac9e3; border-radius: 11px; background: #edf8fe; color: #075b89; }
+  .seller-trade-notice b, .seller-trade-notice small { display: block; }
+  .seller-trade-notice small { margin-top: 3px; font-size: 11px; }
+  .seller-trade-notice button { margin-top: 9px; padding: 7px 9px; border: 0; border-radius: 7px; background: #0877bb; color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
 `;
 document.head.appendChild(roleNavigationStyle);
 
@@ -1089,7 +1113,7 @@ const sellerScreen = document.createElement('section');
 sellerScreen.id = 'seller';
 sellerScreen.className = 'app-screen role-screen';
 sellerScreen.setAttribute('aria-label', '판매자');
-sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}${roleButton('⏳', '폐기 예정 할인', '할인 상품 등록')}</div>`;
+sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div id="sellerTradeNotice" hidden></div><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}${roleButton('⏳', '폐기 예정 할인', '할인 상품 등록')}</div>`;
 document.querySelector('main').appendChild(sellerScreen);
 
 const discountSaleScreen = document.createElement('section');
@@ -1128,7 +1152,8 @@ document.querySelector('main').appendChild(bottomTabs);
 document.querySelectorAll('#homeRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['catch', 'price'][index]; go(screen); if (screen === 'catch') renderRegisteredInfo('catch'); }));
 document.querySelectorAll('#buyerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['purchase', 'aquarium', 'stock'][index]; go(screen); if (screen === 'purchase') loadSalesWithMenu(); if (screen === 'aquarium') loadAquarium(); if (screen === 'stock') renderRegisteredInfo('stock'); }));
 document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (isBuyerDemo()) { showToast('구매자 테스트 계정은 판매자 기능을 이용할 수 없습니다.'); return; } if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1 || index === 3) { const target = index === 1 ? 'sale' : 'discountSale'; if (!isSellerVerified()) { sellerGateTarget = target; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go(target); if (target === 'sale') loadSellerRequests(); return; } openSellerRequestManagement(); }));
-bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else { go(tab); if (tab === 'buyer') loadBuyerTradeNotifications(); } }));
+bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else { go(tab); if (tab === 'buyer') loadBuyerTradeNotifications(); if (tab === 'seller') loadSellerTradeNotifications(); } }));
+loadSellerTradeNotifications();
 const initialScreen = document.querySelector('.app-screen.active')?.id;
 const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', discountSale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
 bottomTabs.hidden = !initialTab;
