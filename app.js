@@ -64,7 +64,7 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
     ['우럭', '부산 연안', '이기대 앞바다', '민락어민활어직판장', 145, 52]
   ].map(([fish, area, operationLocation, market, catchAmount, stock], index) => ({
     id: `presentation-info-${index + 1}`,
-    ownerUid: `presentation-seller-${index + 1}`,
+    ownerUid: 'demo-seller',
     mode: 'catch', fish, area, operationLocation, market,
     catch: catchAmount, stock, price: 0,
     createdAt: '2026-02-26T08:00:00.000Z'
@@ -77,12 +77,14 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
 }
 
 // 발표용 상품은 테스트 판매자 계정에서 요청·거래확정 흐름을 시연할 수 있게 연결합니다.
-if (localStorage.getItem('singsing-demo-seller-ownership') !== '2026080736') {
+if (localStorage.getItem('singsing-demo-seller-ownership') !== '2026080740') {
   const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]').map(item => String(item.id).startsWith('presentation-sale-') ? { ...item, sellerUid: 'demo-seller' } : item);
   const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => String(item.saleId).startsWith('presentation-sale-') ? { ...item, sellerUid: 'demo-seller' } : item);
+  const stockInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').map(item => String(item.id).startsWith('presentation-info-') ? { ...item, ownerUid: 'demo-seller' } : item);
   localStorage.setItem('singsing-sales', JSON.stringify(sales));
   localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
-  localStorage.setItem('singsing-demo-seller-ownership', '2026080736');
+  localStorage.setItem('singsing-info-registrations', JSON.stringify(stockInfo));
+  localStorage.setItem('singsing-demo-seller-ownership', '2026080740');
 }
 
 if (localStorage.getItem('singsing-discount-total-migration') !== '2026080737') {
@@ -162,6 +164,16 @@ visualStyle.textContent = `
   .request-state { display: inline-block; padding: 7px 9px; border-radius: 8px; background: #e4f7ef; color: #087f72; font-size: 10px; font-weight: 700; white-space: nowrap; }
   .unavailable { color: #637e89 !important; font-weight: 700; }
   .stock-request-button { margin-top: 7px; border: 1px solid #76b6d2; border-radius: 7px; background: #fff; color: #075b89; padding: 5px 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .sale-request-modal { position: fixed; z-index: 60; inset: 0; display: grid; place-items: end center; padding: 18px; background: #063d7275; }
+  .sale-request-modal[hidden] { display: none; }
+  .sale-request-modal form { width: min(440px, 100%); padding: 20px; border-radius: 18px; background: #fff; box-shadow: 0 10px 35px #001d3c40; }
+  .sale-request-modal h3 { margin: 0 0 5px; color: #063d72; }
+  .sale-request-modal p { margin: 0 0 14px; color: #527487; font-size: 12px; }
+  .sale-request-modal label { display: block; color: #315e73; font-size: 12px; font-weight: 700; }
+  .sale-request-modal input { width: 100%; margin-top: 6px; box-sizing: border-box; padding: 11px; border: 1px solid #b9dbe7; border-radius: 8px; font: inherit; }
+  .sale-request-modal .modal-actions { display: flex; gap: 8px; margin-top: 13px; }
+  .sale-request-modal button { flex: 1; padding: 10px; border: 0; border-radius: 8px; background: #0877bb; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+  .sale-request-modal button[type="button"] { background: #edf5f8; color: #426c7f; }
   .seller-request-panel { margin: 0 20px 18px; padding: 14px; border: 1px solid #b9deea; border-radius: 12px; background: #effbff; }
   .seller-request-panel h3 { margin: 0 0 5px; color: #063d72; font-size: 14px; }
   .seller-request-panel > p { margin: 0 0 10px; color: #426c7f; font-size: 11px; }
@@ -244,23 +256,36 @@ const number = value => new Intl.NumberFormat('ko-KR').format(value);
 const percent = (now, last) => Number.isFinite(now) && Number.isFinite(last) && last !== 0 ? Math.round(((now - last) / last) * 100) : null;
 const compareMarkup = (now, last) => { const change = percent(now, last); return change === null ? '<small class="unavailable">작년 같은 날 공개 데이터 없음</small>' : `<small class="${change >= 0 ? 'up' : 'down'}">${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% · 작년 ${number(last)}</small>`; };
 
-function saveSaleRequest(fish, market, stock) {
-  const requested = window.prompt(`${fish}의 판매 요청 수량을 입력해 주세요.\n판매 가능 재고: ${stock}kg`, '');
-  if (requested === null) return;
-  const quantity = Number(requested);
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    showToast('0보다 큰 수량(kg)을 입력해 주세요.');
-    return;
-  }
-  if (quantity > Number(stock)) {
-    showToast(`판매 가능 재고 ${stock}kg 이하로 요청해 주세요.`);
-    return;
-  }
-  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]');
-  requests.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), fish, market: market || '판매 시장 미입력', stock: Number(stock), quantity, requestedAt: new Date().toISOString() });
-  localStorage.setItem('singsing-sale-requests', JSON.stringify(requests));
-  showToast('판매 요청을 보냈습니다. 상인이 판매 등록 화면에서 확인합니다.');
+const saleRequestModal = document.createElement('div');
+saleRequestModal.className = 'sale-request-modal';
+saleRequestModal.hidden = true;
+saleRequestModal.innerHTML = '<form id="saleRequestForm"><h3>판매 요청 보내기</h3><p id="saleRequestSummary"></p><input id="saleRequestSeller" type="hidden" /><input id="saleRequestFish" type="hidden" /><input id="saleRequestMarket" type="hidden" /><input id="saleRequestStock" type="hidden" /><label>요청 수량<input id="saleRequestQuantity" type="number" min="1" step="1" required /><small class="single-unit">kg</small></label><div class="modal-actions"><button type="button" data-close-sale-request>취소</button><button type="submit">판매 요청 보내기</button></div></form>';
+document.body.appendChild(saleRequestModal);
+function saveSaleRequest(fish, market, stock, sellerUid = 'demo-seller') {
+  const quantityInput = saleRequestModal.querySelector('#saleRequestQuantity');
+  saleRequestModal.querySelector('#saleRequestSummary').textContent = `${fish} · ${market || '판매 시장 미입력'} · 판매 가능 재고 ${stock}kg`;
+  saleRequestModal.querySelector('#saleRequestSeller').value = sellerUid || 'demo-seller';
+  saleRequestModal.querySelector('#saleRequestFish').value = fish;
+  saleRequestModal.querySelector('#saleRequestMarket').value = market || '판매 시장 미입력';
+  saleRequestModal.querySelector('#saleRequestStock').value = stock;
+  quantityInput.max = String(stock);
+  quantityInput.value = '';
+  saleRequestModal.hidden = false;
+  quantityInput.focus();
 }
+saleRequestModal.querySelector('[data-close-sale-request]').addEventListener('click', () => { saleRequestModal.hidden = true; });
+saleRequestModal.querySelector('#saleRequestForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const quantity = Number(saleRequestModal.querySelector('#saleRequestQuantity').value);
+  const stock = Number(saleRequestModal.querySelector('#saleRequestStock').value);
+  if (!Number.isFinite(quantity) || quantity <= 0 || quantity > stock) { showToast(`판매 가능 재고 ${stock}kg 이하로 요청해 주세요.`); return; }
+  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]');
+  requests.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), sellerUid: saleRequestModal.querySelector('#saleRequestSeller').value, buyerUid: activeUser()?.uid || 'local-user', fish: saleRequestModal.querySelector('#saleRequestFish').value, market: saleRequestModal.querySelector('#saleRequestMarket').value, stock, quantity, requestedAt: new Date().toISOString() });
+  localStorage.setItem('singsing-sale-requests', JSON.stringify(requests));
+  saleRequestModal.hidden = true;
+  showToast('판매 요청을 보냈습니다. 판매자에게 알림이 전달되었습니다.');
+  updateRequestNotifications();
+});
 
 function renderData(type) {
   const config = { catch: ['catch', 'catchLast', 'kg'], stock: ['stock', 'stockLast', 'kg'], price: ['price', 'priceLast', '원/kg'] }[type];
@@ -279,8 +304,8 @@ function renderData(type) {
   const summaryChange = percent(summary, summaryLast);
   document.querySelector(`#${type} .summary-card p`).innerHTML = summaryChange === null ? '작년 같은 날 공개 데이터 없음' : `작년 같은 날 대비 <b class="${summaryChange >= 0 ? 'up' : 'down'}">${summaryChange >= 0 ? '+' : ''}${summaryChange}%</b>`;
   const list = document.getElementById(`${type}List`);
-  list.innerHTML = fishData.map(fish => { const available = Number.isFinite(fish[key]); const noTrade = type === 'price' && fish.price === 0; const value = noTrade ? '거래 없음' : available ? `${number(fish[key])}${unit}` : type === 'stock' ? '판매자 등록 전' : '거래 데이터 없음'; const detail = type === 'catch' ? ` · ${fish.area} / ${fish.location}` : ''; const stockRequest = type === 'stock' && available && fish.stock > 0 ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}${fish.note ? ` · ${fish.note}` : ''}</small><small>${type === 'catch' ? `어획 해역${detail}` : type === 'stock' ? '주요 거래 품목 · 판매 가능 수량' : '기준일 평균 시세'}</small></div><div class="fish-value"><strong>${value}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
-  if (type === 'stock') list.querySelectorAll('[data-stock-fish]').forEach(button => button.addEventListener('click', () => saveSaleRequest(button.dataset.stockFish, button.dataset.stockMarket, button.dataset.stockQuantity)));
+  list.innerHTML = fishData.map(fish => { const available = Number.isFinite(fish[key]); const noTrade = type === 'price' && fish.price === 0; const value = noTrade ? '거래 없음' : available ? `${number(fish[key])}${unit}` : type === 'stock' ? '판매자 등록 전' : '거래 데이터 없음'; const detail = type === 'catch' ? ` · ${fish.area} / ${fish.location}` : ''; const stockRequest = type === 'stock' && available && fish.stock > 0 ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}" data-stock-seller="demo-seller">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}${fish.note ? ` · ${fish.note}` : ''}</small><small>${type === 'catch' ? `어획 해역${detail}` : type === 'stock' ? '주요 거래 품목 · 판매 가능 수량' : '기준일 평균 시세'}</small></div><div class="fish-value"><strong>${value}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
+  if (type === 'stock') list.querySelectorAll('[data-stock-fish]').forEach(button => button.addEventListener('click', () => saveSaleRequest(button.dataset.stockFish, button.dataset.stockMarket, button.dataset.stockQuantity, button.dataset.stockSeller)));
 }
 
 ['catch', 'stock', 'price'].forEach(renderData);
@@ -396,12 +421,15 @@ function updateRequestNotifications() {
     return item.sellerUid === user?.uid && (status === 'requested' || status === 'cancel_requested' || (status === 'confirmed' && item.selectedMeetingTime && !item.sellerTimeSeen));
   }).length;
   const buyerCount = requests.filter(item => item.buyerUid === user?.uid && item.status === 'confirmed' && item.meetingPlace && !item.buyerTradeSeen).length;
+  const stockRequestCount = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]').filter(item => !item.sellerUid || item.sellerUid === user?.uid).length;
   const setBadge = (targets, count) => targets.forEach(target => {
     if (!target) return;
     target.querySelector('.request-badge')?.remove();
     if (count) target.insertAdjacentHTML('beforeend', `<i class="request-badge">${count > 9 ? '9+' : count}</i>`);
   });
-  setBadge([document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')], sellerCount);
+  setBadge([document.querySelector('#sellerRoleMenu button:nth-child(3)')], sellerCount);
+  setBadge([document.querySelector('.bottom-tabs [data-tab="seller"]')], sellerCount + stockRequestCount);
+  setBadge([document.querySelector('#sellerRoleMenu button:nth-child(2)')], stockRequestCount);
   setBadge([document.querySelector('#buyerRoleMenu button:nth-child(2)'), document.querySelector('.bottom-tabs [data-tab="buyer"]')], buyerCount);
 }
 function openSellerRequestManagement() {
@@ -687,7 +715,8 @@ let pendingSaleRequestId = null;
 function loadSellerRequests() {
   const saleScreen = document.getElementById('sale');
   saleScreen.querySelector('.seller-request-panel')?.remove();
-  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]');
+  const user = activeUser();
+  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]').filter(item => !item.sellerUid || item.sellerUid === user?.uid);
   if (!requests.length) return;
   const panel = document.createElement('section');
   panel.className = 'seller-request-panel';
@@ -702,6 +731,7 @@ function loadSellerRequests() {
     form.querySelectorAll('input[type="number"]')[0].value = request.quantity || request.stock;
     pendingSaleRequestId = request.id;
     panel.remove();
+    updateRequestNotifications();
     showToast('요청 정보를 채웠습니다. 판매 가격과 최소 주문 수량을 입력해 주세요.');
   }));
 }
@@ -836,7 +866,7 @@ function renderRegisteredInfo(type) {
   panel.querySelectorAll('[data-stock-request]').forEach(button => button.addEventListener('click', () => {
     const item = entries.find(entry => entry.id === button.dataset.stockRequest);
     if (!item) return;
-    saveSaleRequest(item.fish, item.market, item.stock);
+    saveSaleRequest(item.fish, item.market, item.stock, item.ownerUid);
   }));
 }
 
