@@ -29,7 +29,7 @@ if (localStorage.getItem('singsing-info-owner-migration') !== '2026080722') {
 
 // 발표 시 서비스 사용 모습을 보여 주기 위한 초기 등록 목록입니다.
 // 기존에 직접 등록한 정보는 지우지 않고, 한 번만 함께 표시합니다.
-if (localStorage.getItem('singsing-presentation-seed') !== '2026080726') {
+if (localStorage.getItem('singsing-presentation-seed') !== '2026080729') {
   const seedSales = [
     ['고등어', '부산공동어시장', '남항수산', 680, 5100, 30],
     ['갈치', '자갈치시장', '자갈치바다상회', 240, 9800, 20],
@@ -42,12 +42,14 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080726') {
     ['광어', '자갈치시장', '남포수산유통', 75, 15100, 5],
     ['우럭', '민락어민활어직판장', '민락활어센터', 110, 21200, 10],
     ['갑오징어', '부산공동어시장', '부산어시장중도매', 130, 16800, 10],
-    ['멸치', '기장시장', '기장수산물', 260, 7200, 20]
-  ].map(([fish, market, sellerEmail, quantity, price, minimumOrder], index) => ({
+    ['멸치', '기장시장', '기장수산물', 260, 7200, 20],
+    ['갈치', '자갈치시장', '자갈치바다상회', 55, 7700, 5, true, '오늘 마감'],
+    ['고등어', '부산공동어시장', '남항수산', 80, 3900, 10, true, '내일 오전 마감']
+  ].map(([fish, market, sellerEmail, quantity, price, minimumOrder, discounted = false, expires = ''], index) => ({
     id: `presentation-sale-${index + 1}`,
     sellerUid: `presentation-seller-${index + 1}`,
     sellerEmail,
-    fish, market, quantity, price, minimumOrder
+    fish, market, quantity, price, minimumOrder, discounted, expires
   }));
   const seedInfo = [
     ['고등어', '부산 연안', '영도 앞바다', '부산공동어시장', 980, 320],
@@ -71,7 +73,7 @@ if (localStorage.getItem('singsing-presentation-seed') !== '2026080726') {
   const currentInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
   localStorage.setItem('singsing-sales', JSON.stringify([...currentSales.filter(item => !String(item.id).startsWith('presentation-sale-')), ...seedSales]));
   localStorage.setItem('singsing-info-registrations', JSON.stringify([...currentInfo.filter(item => !String(item.id).startsWith('presentation-info-')), ...seedInfo]));
-  localStorage.setItem('singsing-presentation-seed', '2026080726');
+  localStorage.setItem('singsing-presentation-seed', '2026080729');
 }
 
 function addDirectInputOptions(formId) {
@@ -264,7 +266,7 @@ function go(screen) {
   document.querySelectorAll('.app-screen').forEach(section => section.classList.remove('active'));
   document.getElementById('login').style.display = screen === 'login' ? '' : 'none';
   document.getElementById(screen).classList.add('active');
-  const tab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[screen];
+  const tab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', discountSale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[screen];
   const bottomTabs = document.querySelector('.bottom-tabs');
   if (bottomTabs) {
     bottomTabs.hidden = !tab;
@@ -507,7 +509,7 @@ async function loadSalesWithMenu() {
   const target = document.getElementById('saleList');
   const rows = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
   target.innerHTML = rows.length
-    ? rows.map(s => `<article class="sale-card"><div><b>${s.fish}</b><small>${s.market} · 판매자 ${s.sellerEmail}</small><strong>${s.quantity}kg · ${Number(s.price).toLocaleString('ko-KR')}원/kg</strong></div><div class="card-actions"><button data-sale="${s.id}">구매 요청</button><button class="more-button" data-cancel-sale="${s.id}" aria-label="판매 등록 메뉴">⋯</button></div></article>`).join('')
+    ? rows.map(s => `<article class="sale-card ${s.discounted ? 'discount-sale-card' : ''}"><div><b>${s.fish}</b>${s.discounted ? '<span class="discount-badge">폐기 예정 할인</span>' : ''}<small>${s.market} · 판매자 ${s.sellerEmail}${s.discounted ? ` · ${s.expires}` : ''}</small><strong>${s.quantity}kg · ${Number(s.price).toLocaleString('ko-KR')}원/kg</strong></div><div class="card-actions"><button data-sale="${s.id}">구매 요청</button><button class="more-button" data-cancel-sale="${s.id}" aria-label="판매 등록 메뉴">⋯</button></div></article>`).join('')
     : '<p class="empty-sale">아직 판매 등록된 상품이 없습니다.</p>';
   window.saleRows = rows;
   target.querySelectorAll('[data-sale]').forEach(button => {
@@ -1011,6 +1013,9 @@ roleNavigationStyle.textContent = `
   #home { padding-bottom: 76px; }
   #home .role-menu { padding: 0; }
   .data-screen, .form-screen { padding-bottom: 88px; }
+  .discount-sale-card { border: 1px solid #f0c36e; background: #fffaf0; }
+  .discount-badge { display: inline-block; margin-left: 6px; padding: 3px 6px; border-radius: 6px; background: #fff0cf; color: #a55c00; font-size: 10px; font-weight: 800; vertical-align: middle; }
+  .discount-form-note { margin: 0 0 14px; padding: 11px; border-radius: 10px; background: #fff6df; color: #86510b; font-size: 11px; line-height: 1.55; }
 `;
 document.head.appendChild(roleNavigationStyle);
 
@@ -1029,8 +1034,35 @@ const sellerScreen = document.createElement('section');
 sellerScreen.id = 'seller';
 sellerScreen.className = 'app-screen role-screen';
 sellerScreen.setAttribute('aria-label', '판매자');
-sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}</div>`;
+sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}${roleButton('⏳', '폐기 예정 할인', '할인 상품 등록')}</div>`;
 document.querySelector('main').appendChild(sellerScreen);
+
+const discountSaleScreen = document.createElement('section');
+discountSaleScreen.id = 'discountSale';
+discountSaleScreen.className = 'app-screen form-screen';
+discountSaleScreen.setAttribute('aria-label', '폐기 예정 할인 등록');
+const marketOptions = ['부산공동어시장', '자갈치시장', '신동아수산물종합시장', '민락어민활어직판장', '기장시장', '대변항 수산시장', '다대포수산시장', '명지시장'];
+discountSaleScreen.innerHTML = `<div class="screen-header"><button class="back" data-go="seller">‹</button><div><small>LAST-CHANCE SALE</small><h2>폐기 예정 할인 등록</h2></div><span></span></div><p class="form-intro">신선도 유지 기간이 얼마 남지 않은 상품을<br />합리적인 가격에 판매해 보세요.</p><form id="discountSaleForm"><p class="discount-form-note">기준 시세 이하의 가격만 등록할 수 있습니다. 구매자는 할인 상품을 별도 표시로 확인합니다.</p><label>판매 시장<select required>${marketOptions.map(item => `<option value="${item}">${item}</option>`).join('')}</select></label><label>수산물 종류<select id="discountFish" required>${fishData.map(item => `<option value="${item.name}">${item.name}</option>`).join('')}</select></label><label>판매 수량<input id="discountQuantity" type="number" min="1" step="1" required /><small class="single-unit">kg</small></label><label>할인 판매 가격<input id="discountPrice" type="number" min="1" step="1" required /><small class="single-unit">원/kg</small></label><label>판매 기한<select id="discountExpiry"><option value="오늘 마감">오늘 마감</option><option value="내일 오전 마감">내일 오전 마감</option><option value="내일 마감">내일 마감</option></select></label><button class="primary-button" type="submit">할인 상품 등록하기 <span>→</span></button></form>`;
+document.querySelector('main').appendChild(discountSaleScreen);
+discountSaleScreen.querySelector('[data-go="seller"]').addEventListener('click', () => go('seller'));
+discountSaleScreen.querySelector('#discountFish').addEventListener('change', event => {
+  const fish = fishData.find(item => item.name === event.target.value);
+  discountSaleScreen.querySelector('#discountPrice').max = String(fish?.price || 999999);
+});
+discountSaleScreen.querySelector('#discountSaleForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const fish = fishData.find(item => item.name === discountSaleScreen.querySelector('#discountFish').value);
+  const price = Number(discountSaleScreen.querySelector('#discountPrice').value);
+  const referencePrice = fish?.price || 0;
+  if (referencePrice > 0 && price > referencePrice) { showToast(`기준 시세 ${number(referencePrice)}원/kg 이하로 입력해 주세요.`); return; }
+  const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
+  sales.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), sellerUid: activeUser()?.uid || 'local-user', sellerEmail: activeUser()?.email || '판매자', market: discountSaleScreen.querySelector('select').value, fish: fish?.name, quantity: Number(discountSaleScreen.querySelector('#discountQuantity').value), price, minimumOrder: 1, discounted: true, expires: discountSaleScreen.querySelector('#discountExpiry').value });
+  localStorage.setItem('singsing-sales', JSON.stringify(sales));
+  discountSaleScreen.querySelector('#discountSaleForm').reset();
+  showToast('폐기 예정 할인 상품이 등록되었습니다.');
+  go('purchase');
+  loadSalesWithMenu();
+});
 
 const bottomTabs = document.createElement('nav');
 bottomTabs.className = 'bottom-tabs';
@@ -1040,10 +1072,10 @@ document.querySelector('main').appendChild(bottomTabs);
 
 document.querySelectorAll('#homeRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['catch', 'price'][index]; go(screen); if (screen === 'catch') renderRegisteredInfo('catch'); }));
 document.querySelectorAll('#buyerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['purchase', 'aquarium', 'stock'][index]; go(screen); if (screen === 'purchase') loadSalesWithMenu(); if (screen === 'aquarium') loadAquarium(); if (screen === 'stock') renderRegisteredInfo('stock'); }));
-document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (isBuyerDemo()) { showToast('구매자 테스트 계정은 판매자 기능을 이용할 수 없습니다.'); return; } if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1) { if (!isSellerVerified()) { sellerGateTarget = 'sale'; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go('sale'); loadSellerRequests(); return; } openSellerRequestManagement(); }));
+document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (isBuyerDemo()) { showToast('구매자 테스트 계정은 판매자 기능을 이용할 수 없습니다.'); return; } if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1 || index === 3) { const target = index === 1 ? 'sale' : 'discountSale'; if (!isSellerVerified()) { sellerGateTarget = target; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go(target); if (target === 'sale') loadSellerRequests(); return; } openSellerRequestManagement(); }));
 bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else go(tab); }));
 const initialScreen = document.querySelector('.app-screen.active')?.id;
-const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
+const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', discountSale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
 bottomTabs.hidden = !initialTab;
 if (initialTab) bottomTabs.querySelector(`[data-tab="${initialTab}"]`).classList.add('active');
 updateRequestNotifications();
