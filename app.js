@@ -27,6 +27,53 @@ if (localStorage.getItem('singsing-info-owner-migration') !== '2026080722') {
   localStorage.setItem('singsing-info-owner-migration', '2026080722');
 }
 
+// 발표 시 서비스 사용 모습을 보여 주기 위한 초기 등록 목록입니다.
+// 기존에 직접 등록한 정보는 지우지 않고, 한 번만 함께 표시합니다.
+if (localStorage.getItem('singsing-presentation-seed') !== '2026080726') {
+  const seedSales = [
+    ['고등어', '부산공동어시장', '남항수산', 680, 5100, 30],
+    ['갈치', '자갈치시장', '자갈치바다상회', 240, 9800, 20],
+    ['광어', '민락어민활어직판장', '광안활어유통', 180, 14500, 10],
+    ['우럭', '신동아수산물종합시장', '동아수산', 160, 20500, 10],
+    ['갑오징어', '기장시장', '기장해풍수산', 95, 17500, 5],
+    ['멸치', '대변항 수산시장', '대변건어물', 420, 6800, 20],
+    ['고등어', '다대포수산시장', '다대포어촌계', 350, 4950, 30],
+    ['갈치', '명지시장', '명지바다상회', 125, 10200, 10],
+    ['광어', '자갈치시장', '남포수산유통', 75, 15100, 5],
+    ['우럭', '민락어민활어직판장', '민락활어센터', 110, 21200, 10],
+    ['갑오징어', '부산공동어시장', '부산어시장중도매', 130, 16800, 10],
+    ['멸치', '기장시장', '기장수산물', 260, 7200, 20]
+  ].map(([fish, market, sellerEmail, quantity, price, minimumOrder], index) => ({
+    id: `presentation-sale-${index + 1}`,
+    sellerUid: `presentation-seller-${index + 1}`,
+    sellerEmail,
+    fish, market, quantity, price, minimumOrder
+  }));
+  const seedInfo = [
+    ['고등어', '부산 연안', '영도 앞바다', '부산공동어시장', 980, 320],
+    ['갈치', '남해 동부 해역', '오륙도 남동쪽', '자갈치시장', 410, 145],
+    ['광어', '기장 연안', '대변항 인근', '민락어민활어직판장', 220, 78],
+    ['우럭', '다대포 연안', '다대포 외해', '신동아수산물종합시장', 175, 66],
+    ['갑오징어', '기장 연안', '일광 앞바다', '기장시장', 126, 43],
+    ['멸치', '부산 연안', '가덕도 북쪽', '대변항 수산시장', 730, 280],
+    ['고등어', '남해 동부 해역', '태종대 남쪽', '다대포수산시장', 540, 195],
+    ['갈치', '부산 연안', '해운대 앞바다', '명지시장', 168, 58],
+    ['광어', '기장 연안', '송정 연안', '자갈치시장', 93, 34],
+    ['우럭', '부산 연안', '이기대 앞바다', '민락어민활어직판장', 145, 52]
+  ].map(([fish, area, operationLocation, market, catchAmount, stock], index) => ({
+    id: `presentation-info-${index + 1}`,
+    ownerUid: `presentation-seller-${index + 1}`,
+    mode: 'catch', fish, area, operationLocation, market,
+    catch: catchAmount, stock, price: 0,
+    createdAt: '2026-02-26T08:00:00.000Z'
+  }));
+  const currentSales = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
+  const currentInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
+  localStorage.setItem('singsing-sales', JSON.stringify([...currentSales.filter(item => !String(item.id).startsWith('presentation-sale-')), ...seedSales]));
+  localStorage.setItem('singsing-info-registrations', JSON.stringify([...currentInfo.filter(item => !String(item.id).startsWith('presentation-info-')), ...seedInfo]));
+  localStorage.setItem('singsing-presentation-seed', '2026080726');
+}
+
 function addDirectInputOptions(formId) {
   const form = document.getElementById(formId);
   const selects = form.querySelectorAll('select');
@@ -967,7 +1014,7 @@ document.head.appendChild(roleNavigationStyle);
 
 const roleButton = (icon, title, detail, className = '') => `<button class="${className}"><span class="menu-icon">${icon}</span><b>${title}</b><small>${detail}</small></button>`;
 const homePanel = document.querySelector('#home .home-panel');
-homePanel.innerHTML = `<p class="demo-label">● 기준일 2026-02-26 · 부산공동어시장</p><h2>기준일 수산물 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '위판량', '기준일 거래량')}${roleButton('₩', '시세', '기준일 평균 가격')}</div>`;
+homePanel.innerHTML = `<p class="demo-label">● 기준일 2026-02-26 · 부산공동어시장 · 발표용 등록 목록 포함</p><h2>기준일 수산물 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '위판량', '기준일 거래량')}${roleButton('₩', '시세', '기준일 평균 가격')}</div>`;
 
 const buyerScreen = document.createElement('section');
 buyerScreen.id = 'buyer';
