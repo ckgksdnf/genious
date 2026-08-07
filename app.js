@@ -225,19 +225,22 @@ sellerInboundPanel.className = 'seller-status seller-inbound';
 sellerInboundPanel.hidden = true;
 document.querySelector('#profile .logout-button').before(sellerInboundPanel);
 
-function loadSellerPurchaseRequests() {
+function renderSellerPurchaseRequests(target, compact = false) {
   const user = activeUser();
   const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.sellerUid === user?.uid && (item.status || 'requested') !== 'cancelled');
-  sellerInboundPanel.hidden = !incoming.length;
-  if (!incoming.length) return;
-  sellerInboundPanel.innerHTML = `<b>받은 구매 요청</b><small>판매자 확인 후 취소는 판매자의 승인으로만 완료됩니다.</small>${incoming.map(item => { const status = item.status || 'requested'; const action = status === 'requested' ? `<button data-confirm-purchase="${item.id}">판매자 확인</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">확인 완료</span>'; return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${purchaseStatusText(status)}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small></div>${action}</article>`; }).join('')}`;
-  sellerInboundPanel.querySelectorAll('[data-confirm-purchase]').forEach(button => button.addEventListener('click', () => {
+  if (compact) target.hidden = !incoming.length;
+  if (!incoming.length) {
+    if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
+    return;
+  }
+  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>판매자 확인 후 취소는 판매자의 승인으로만 완료됩니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const action = status === 'requested' ? `<button data-confirm-purchase="${item.id}">구매 요청 수락</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">수락 완료</span>'; return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${purchaseStatusText(status)}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small></div>${action}</article>`; }).join('')}`;
+  target.querySelectorAll('[data-confirm-purchase]').forEach(button => button.addEventListener('click', () => {
     const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === button.dataset.confirmPurchase ? { ...item, status: 'confirmed' } : item);
     localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
-    showToast('구매 요청을 확인했습니다.');
+    showToast('구매 요청을 수락했습니다.');
     loadSellerPurchaseRequests();
   }));
-  sellerInboundPanel.querySelectorAll('[data-approve-cancel]').forEach(button => button.addEventListener('click', () => {
+  target.querySelectorAll('[data-approve-cancel]').forEach(button => button.addEventListener('click', () => {
     const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
     const request = requests.find(item => item.id === button.dataset.approveCancel);
     if (!request) return;
@@ -247,6 +250,26 @@ function loadSellerPurchaseRequests() {
     showToast('취소 요청을 승인했습니다.');
     loadSellerPurchaseRequests();
   }));
+}
+function loadSellerPurchaseRequests() {
+  renderSellerPurchaseRequests(sellerInboundPanel, true);
+  const managementList = document.getElementById('sellerRequestList');
+  if (managementList) renderSellerPurchaseRequests(managementList);
+}
+function openSellerRequestManagement() {
+  if (!activeUser()) {
+    showToast('로그인 후 판매자 인증을 해야합니다.');
+    go('login');
+    return;
+  }
+  if (!isSellerVerified()) {
+    sellerGateTarget = 'requestManage';
+    showToast('판매자 인증을 해야합니다.');
+    go('sellerVerify');
+    return;
+  }
+  go('requestManage');
+  loadSellerPurchaseRequests();
 }
 
 sellerVerifyScreen.querySelector('#sellerVerifyForm').addEventListener('submit', event => {
@@ -261,6 +284,7 @@ sellerVerifyScreen.querySelector('#sellerVerifyForm').addEventListener('submit',
   refreshSellerStatus();
   showToast('시연용 판매자 인증이 완료되었습니다.');
   go(sellerGateTarget);
+  if (sellerGateTarget === 'requestManage') loadSellerPurchaseRequests();
 });
 
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => go(button.dataset.go)));
@@ -278,6 +302,12 @@ sellerVerifyButton.innerHTML = '<span class="menu-icon">✓</span><b>판매자 �
 sellerVerifyButton.addEventListener('click', () => { sellerGateTarget = 'home'; go('sellerVerify'); });
 document.querySelector('.main-menu').appendChild(sellerVerifyButton);
 
+const sellerRequestButton = document.createElement('button');
+sellerRequestButton.className = 'seller-request-menu';
+sellerRequestButton.innerHTML = '<span class="menu-icon">📨</span><b>구매 요청 관리</b><small>요청 수락·취소 승인</small>';
+sellerRequestButton.addEventListener('click', openSellerRequestManagement);
+document.querySelector('.main-menu').appendChild(sellerRequestButton);
+
 const aquariumScreen = document.createElement('section');
 aquariumScreen.id = 'aquarium';
 aquariumScreen.className = 'app-screen form-screen aquarium-screen';
@@ -285,6 +315,14 @@ aquariumScreen.setAttribute('aria-label', '수족관');
 aquariumScreen.innerHTML = '<div class="screen-header"><button class="back" data-go="home">‹</button><div><small>MY AQUARIUM</small><h2>수족관</h2></div><span></span></div><p class="form-intro">내가 구매 요청한 수산물을<br />한곳에서 확인할 수 있어요.</p><div id="aquariumList" class="sale-list"></div>';
 document.querySelector('main').appendChild(aquariumScreen);
 aquariumScreen.querySelector('[data-go="home"]').addEventListener('click', () => go('home'));
+
+const sellerRequestScreen = document.createElement('section');
+sellerRequestScreen.id = 'requestManage';
+sellerRequestScreen.className = 'app-screen form-screen';
+sellerRequestScreen.setAttribute('aria-label', '구매 요청 관리');
+sellerRequestScreen.innerHTML = '<div class="screen-header"><button class="back" data-go="home">‹</button><div><small>SELLER REQUESTS</small><h2>구매 요청 관리</h2></div><span></span></div><p class="form-intro">판매 등록한 상품으로 들어온 요청을<br />수락하거나 취소 요청을 승인할 수 있어요.</p><div id="sellerRequestList" class="sale-list"></div>';
+document.querySelector('main').appendChild(sellerRequestScreen);
+sellerRequestScreen.querySelector('[data-go="home"]').addEventListener('click', () => go('home'));
 
 function loadAquariumBasic() {
   const target = document.getElementById('aquariumList');
