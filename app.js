@@ -460,7 +460,13 @@ function purchaseStatusText(status) {
 function loadAquarium() {
   const target = document.getElementById('aquariumList');
   const user = activeUser();
-  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => !item.buyerUid || item.buyerUid === user?.uid);
+  const allRequests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const myRequestIds = JSON.parse(localStorage.getItem(`singsing-my-request-ids-${user?.uid || 'local-user'}`) || '[]');
+  const requests = allRequests.filter(item => {
+    // testID는 한 기기에서 구매자·판매자 시연을 함께 진행하므로 저장된 요청을 모두 확인합니다.
+    if (user?.uid === 'demo-test-id') return true;
+    return !item.buyerUid || item.buyerUid === user?.uid || myRequestIds.includes(item.id);
+  });
   target.innerHTML = requests.length
     ? requests.map(item => {
       const status = item.status || 'requested';
@@ -776,8 +782,9 @@ purchaseForm.addEventListener('submit', event => {
     return;
   }
   const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const requestId = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
   requests.unshift({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    id: requestId,
     fish: selectedSale.fish,
     market: selectedSale.market,
     price: selectedSale.price,
@@ -789,6 +796,10 @@ purchaseForm.addEventListener('submit', event => {
     status: 'requested'
   });
   localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
+  const myRequestKey = `singsing-my-request-ids-${activeUser()?.uid || 'local-user'}`;
+  const myRequestIds = JSON.parse(localStorage.getItem(myRequestKey) || '[]');
+  myRequestIds.unshift(requestId);
+  localStorage.setItem(myRequestKey, JSON.stringify(myRequestIds));
   updateRequestNotifications();
   purchaseForm.reset();
   purchaseForm.hidden = true;
