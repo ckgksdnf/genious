@@ -89,6 +89,8 @@ visualStyle.textContent = `
   .seller-status b { color: #063d72; font-size: 13px; }
   .seller-status small { color: #527487; font-size: 10px; margin-top: 4px; }
   .seller-status button { width: 100%; margin-top: 10px; padding: 10px; border: 0; border-radius: 8px; background: #0877bb; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .seller-inbound[hidden] { display: none; }
+  .seller-inbound .seller-request-row button { width: auto; margin: 0; padding: 8px 9px; }
 `;
 document.head.appendChild(visualStyle);
 
@@ -217,6 +219,35 @@ function refreshSellerStatus() {
   sellerStatus.querySelector('button').textContent = verified ? '인증 정보 확인' : '판매자 인증하기';
 }
 sellerStatus.querySelector('button').addEventListener('click', () => { sellerGateTarget = 'profile'; go('sellerVerify'); });
+
+const sellerInboundPanel = document.createElement('section');
+sellerInboundPanel.className = 'seller-status seller-inbound';
+sellerInboundPanel.hidden = true;
+document.querySelector('#profile .logout-button').before(sellerInboundPanel);
+
+function loadSellerPurchaseRequests() {
+  const user = activeUser();
+  const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.sellerUid === user?.uid && (item.status || 'requested') !== 'cancelled');
+  sellerInboundPanel.hidden = !incoming.length;
+  if (!incoming.length) return;
+  sellerInboundPanel.innerHTML = `<b>받은 구매 요청</b><small>판매자 확인 후 취소는 판매자의 승인으로만 완료됩니다.</small>${incoming.map(item => { const status = item.status || 'requested'; const action = status === 'requested' ? `<button data-confirm-purchase="${item.id}">판매자 확인</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">확인 완료</span>'; return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${purchaseStatusText(status)}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small></div>${action}</article>`; }).join('')}`;
+  sellerInboundPanel.querySelectorAll('[data-confirm-purchase]').forEach(button => button.addEventListener('click', () => {
+    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === button.dataset.confirmPurchase ? { ...item, status: 'confirmed' } : item);
+    localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+    showToast('구매 요청을 확인했습니다.');
+    loadSellerPurchaseRequests();
+  }));
+  sellerInboundPanel.querySelectorAll('[data-approve-cancel]').forEach(button => button.addEventListener('click', () => {
+    const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+    const request = requests.find(item => item.id === button.dataset.approveCancel);
+    if (!request) return;
+    const updated = requests.map(item => item.id === request.id ? { ...item, status: 'cancelled' } : item);
+    localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+    recordCancellation(request.buyerUid);
+    showToast('취소 요청을 승인했습니다.');
+    loadSellerPurchaseRequests();
+  }));
+}
 
 sellerVerifyScreen.querySelector('#sellerVerifyForm').addEventListener('submit', event => {
   event.preventDefault();
@@ -351,18 +382,54 @@ async function loadSalesWithMenu() {
   });
 }
 
-// 수족관에서도 점 세 개 메뉴로 구매 요청을 취소할 수 있게 합니다.
+// 수족관에서는 거래 단계에 따라 취소 방법을 다르게 안내합니다.
+function cancellationLogKey(uid) {
+  return `singsing-cancellation-log-${uid || 'local-user'}`;
+}
+function recentCancellationCount(uid) {
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return JSON.parse(localStorage.getItem(cancellationLogKey(uid)) || '[]').filter(time => time > weekAgo).length;
+}
+function recordCancellation(uid) {
+  const times = JSON.parse(localStorage.getItem(cancellationLogKey(uid)) || '[]');
+  times.push(Date.now());
+  localStorage.setItem(cancellationLogKey(uid), JSON.stringify(times));
+}
+function purchaseStatusText(status) {
+  return ({ requested: '요청 접수', confirmed: '판매자 확인', cancel_requested: '취소 요청 검토 중', cancelled: '취소 완료' })[status] || '요청 접수';
+}
 function loadAquarium() {
   const target = document.getElementById('aquariumList');
-  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
+  const user = activeUser();
+  const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => !item.buyerUid || item.buyerUid === user?.uid);
   target.innerHTML = requests.length
-    ? requests.map(item => `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${Number(item.price).toLocaleString('ko-KR')}원/kg</strong></div><div class="card-actions"><span class="request-state">구매 요청 완료</span><button class="more-button" data-cancel-request="${item.id}" aria-label="구매 요청 메뉴">⋯</button></div></article>`).join('')
+    ? requests.map(item => {
+      const status = item.status || 'requested';
+      const action = status === 'requested' ? `<button class="more-button" data-cancel-request="${item.id}" aria-label="구매 요청 취소">⋯</button>` : status === 'confirmed' ? `<button class="more-button" data-request-cancel="${item.id}" aria-label="취소 요청">⋯</button>` : '';
+      const reason = status === 'cancel_requested' ? `<small>취소 사유: ${item.cancellationReason}</small>` : '';
+      return `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${Number(item.price).toLocaleString('ko-KR')}원/kg</strong>${reason}</div><div class="card-actions"><span class="request-state">${purchaseStatusText(status)}</span>${action}</div></article>`;
+    }).join('')
     : '<p class="empty-sale">아직 구매 요청한 상품이 없습니다.</p>';
   target.querySelectorAll('[data-cancel-request]').forEach(button => button.addEventListener('click', () => {
-    if (!window.confirm('취소하겠습니까?')) return;
-    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.id !== button.dataset.cancelRequest);
+    const request = requests.find(item => item.id === button.dataset.cancelRequest);
+    if (!request) return;
+    if (recentCancellationCount(request.buyerUid) >= 3) {
+      showToast('최근 7일 취소 횟수가 3회 이상이라 구매 요청이 제한됩니다.');
+      return;
+    }
+    if (!window.confirm('요청 접수를 취소하겠습니까?')) return;
+    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === request.id ? { ...item, status: 'cancelled' } : item);
     localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+    recordCancellation(request.buyerUid);
     showToast('구매 요청이 취소되었습니다.');
+    loadAquarium();
+  }));
+  target.querySelectorAll('[data-request-cancel]').forEach(button => button.addEventListener('click', () => {
+    const reason = window.prompt('취소 사유를 입력해 주세요.');
+    if (!reason?.trim()) return;
+    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === button.dataset.requestCancel ? { ...item, status: 'cancel_requested', cancellationReason: reason.trim() } : item);
+    localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+    showToast('판매자에게 취소 요청을 보냈습니다.');
     loadAquarium();
   }));
 }
@@ -654,7 +721,10 @@ purchaseForm.addEventListener('submit', event => {
     market: selectedSale.market,
     price: selectedSale.price,
     quantity: Number(fields[0].value),
-    when: fields[1].value
+    when: fields[1].value,
+    buyerUid: activeUser()?.uid || 'local-user',
+    sellerUid: selectedSale.sellerUid || 'local-seller',
+    status: 'requested'
   });
   localStorage.setItem('singsing-purchase-requests', JSON.stringify(requests));
   purchaseForm.reset();
@@ -701,7 +771,7 @@ document.getElementById('logoutButton').addEventListener('click', () => {
 });
 if (demoLoginActive) setProfile('testID');
 if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { demoLoginActive = false; setProfile(user.email); loadHistory(); go('home'); } });
-document.querySelector('[data-go="profile"]').addEventListener('click', loadHistory);
+document.querySelector('[data-go="profile"]').addEventListener('click', () => { loadHistory(); loadSellerPurchaseRequests(); });
 
 function requireSellerVerification(event, target) {
   if (isSellerVerified()) return;
