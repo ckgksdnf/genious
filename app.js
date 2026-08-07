@@ -587,13 +587,27 @@ const operationLocationLabel = document.createElement('label');
 operationLocationLabel.innerHTML = '조업 위치<input id="operationLocation" type="text" placeholder="예: 기장 앞바다 북쪽" /><small class="single-unit">직접 입력</small>';
 registerSelects[1].parentElement.after(operationLocationLabel);
 const stockMarketLabel = document.createElement('label');
-stockMarketLabel.innerHTML = '판매 시장<select id="stockMarket"><option value="">판매 시장을 선택해 주세요</option><option>부산공동어시장</option><option>자갈치시장</option><option>신동아수산물종합시장</option><option>민락어민활어직판장</option><option>기장시장</option><option>대변항 수산시장</option><option>다대포수산시장</option><option>명지시장</option></select>';
+stockMarketLabel.innerHTML = '판매 시장<select id="stockMarket"><option value="">판매 시장을 선택해 주세요</option><option>부산공동어시장</option><option>자갈치시장</option><option>신동아수산물종합시장</option><option>민락어민활어직판장</option><option>기장시장</option><option>대변항 수산시장</option><option>다대포수산시장</option><option>명지시장</option><option value="__direct__">직접 입력</option></select><input id="stockMarketDirect" class="direct-input" type="text" placeholder="판매 시장 직접 입력" hidden />';
 registerNumbers[1].parentElement.after(stockMarketLabel);
 
+function updateStockMarketDirectField() {
+  const select = document.getElementById('stockMarket');
+  const direct = document.getElementById('stockMarketDirect');
+  const isDirect = select.value === '__direct__';
+  direct.hidden = !isDirect;
+  direct.required = isDirect && !stockMarketLabel.hidden;
+  if (!isDirect) direct.value = '';
+}
+document.getElementById('stockMarket').addEventListener('change', updateStockMarketDirectField);
+function selectedStockMarket() {
+  const select = document.getElementById('stockMarket');
+  return select.value === '__direct__' ? document.getElementById('stockMarketDirect').value.trim() : select.value;
+}
 function updateStockMarketField() {
   const shouldShow = registrationMode === 'catch' && Number(registerNumbers[1].value) > 0;
   stockMarketLabel.hidden = !shouldShow;
   document.getElementById('stockMarket').required = shouldShow;
+  document.getElementById('stockMarketDirect').required = shouldShow && document.getElementById('stockMarket').value === '__direct__';
 }
 registerNumbers[1].addEventListener('input', updateStockMarketField);
 
@@ -643,6 +657,7 @@ function configureRegistration(mode) {
     document.getElementById('operationLocation').required = false;
     stockMarketLabel.hidden = true;
     document.getElementById('stockMarket').required = false;
+    document.getElementById('stockMarketDirect').required = false;
     header.textContent = '재고 등록';
     intro.innerHTML = '판매할 시장과 품목별 재고를<br />등록해 구매자에게 알립니다.';
   }
@@ -711,7 +726,11 @@ function openInfoEditor(id) {
     numbers[0].value = entry.catch;
     numbers[1].value = entry.stock || '';
     document.getElementById('operationLocation').value = entry.operationLocation || '';
-    document.getElementById('stockMarket').value = entry.market || '';
+    const marketSelect = document.getElementById('stockMarket');
+    const knownMarket = [...marketSelect.options].some(option => option.value === entry.market);
+    marketSelect.value = knownMarket ? entry.market : '__direct__';
+    document.getElementById('stockMarketDirect').value = knownMarket ? '' : (entry.market || '');
+    updateStockMarketDirectField();
     updateStockMarketField();
   } else {
     numbers[1].value = entry.stock;
@@ -734,7 +753,7 @@ directRegisterForm.addEventListener('submit', event => {
   const savedEntry = {
     id: editingInfoId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     mode: registrationMode,
-    market: registrationMode === 'catch' ? document.getElementById('stockMarket').value : selectedOrDirect(directRegisterForm, 0),
+    market: registrationMode === 'catch' ? selectedStockMarket() : selectedOrDirect(directRegisterForm, 0),
     area: registrationMode === 'catch' ? selectedOrDirect(directRegisterForm, 0) : '',
     operationLocation: registrationMode === 'catch' ? document.getElementById('operationLocation').value.trim() : '',
     fish: selectedOrDirect(directRegisterForm, 1),
@@ -752,6 +771,7 @@ directRegisterForm.addEventListener('submit', event => {
   localStorage.setItem('singsing-info-registrations', JSON.stringify(entries));
   directRegisterForm.reset();
   resetDirectInputs(directRegisterForm);
+  document.getElementById('stockMarketDirect').hidden = true;
   updateStockMarketField();
   editingInfoId = null;
   directRegisterForm.querySelector('.primary-button').childNodes[0].textContent = '정보 등록하기 ';
