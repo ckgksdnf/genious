@@ -5,6 +5,11 @@ document.querySelectorAll('.header-button').forEach(button => { button.textConte
 document.querySelectorAll('.header-button').forEach(button => button.remove());
 document.querySelectorAll('.profile-button').forEach(button => { button.textContent = '👤'; button.setAttribute('aria-label', '프로필'); button.title = '프로필'; });
 
+let demoLoginActive = sessionStorage.getItem('singsing-demo-login') === 'true';
+function activeUser() {
+  return auth.currentUser || (demoLoginActive ? { uid: 'demo-test-id', email: 'testID' } : null);
+}
+
 function addDirectInputOptions(formId) {
   const form = document.getElementById(formId);
   const selects = form.querySelectorAll('select');
@@ -65,13 +70,65 @@ visualStyle.textContent = `
   .user-info-value div { display: flex; justify-content: flex-end; gap: 5px; margin-top: 7px; }
   .user-info-value button { border: 1px solid #b9dbe7; border-radius: 6px; background: #fff; color: #285d76; padding: 4px 7px; font-size: 10px; cursor: pointer; }
   .user-info-value button[data-cancel-info] { color: #b84d47; border-color: #edc7c2; }
+  .demo-login-button { display: block; width: calc(100% - 40px); margin: 12px 20px 0; padding: 12px; border: 1px solid #77bedd; border-radius: 8px; background: #e8f8ff; color: #075b89; font-size: 12px; font-weight: 700; cursor: pointer; }
   .card-actions { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
   .sale-card .card-actions > button { padding: 8px 11px; border-radius: 9px; font-weight: 700; }
   .sale-card .card-actions > button[data-sale] { background: #0877bb; box-shadow: 0 3px 7px #0877bb2e; }
   .sale-card .more-button { min-width: 34px; padding: 5px 8px !important; background: #edf7fb; color: #315e73; border: 1px solid #c9e3ed; box-shadow: none; font-size: 19px; line-height: 1; }
   .request-state { display: inline-block; padding: 7px 9px; border-radius: 8px; background: #e4f7ef; color: #087f72; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .stock-request-button { margin-top: 7px; border: 1px solid #76b6d2; border-radius: 7px; background: #fff; color: #075b89; padding: 5px 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .seller-request-panel { margin: 0 20px 18px; padding: 14px; border: 1px solid #b9deea; border-radius: 12px; background: #effbff; }
+  .seller-request-panel h3 { margin: 0 0 5px; color: #063d72; font-size: 14px; }
+  .seller-request-panel > p { margin: 0 0 10px; color: #426c7f; font-size: 11px; }
+  .seller-request-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0; border-top: 1px solid #cce7f0; }
+  .seller-request-row b, .seller-request-row small { display: block; }
+  .seller-request-row small { color: #527487; font-size: 10px; margin-top: 3px; }
+  .seller-request-row button { border: 0; border-radius: 8px; padding: 8px 9px; background: #0877bb; color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
 `;
 document.head.appendChild(visualStyle);
+
+const mobileOnlyStyle = document.createElement('style');
+mobileOnlyStyle.textContent = `
+  @media (min-width: 700px) {
+    body { background: #dfeef5; }
+    .phone-shell { max-width: 480px !important; min-height: 100vh !important; margin: 0 auto !important; border-radius: 0 !important; }
+    .app-screen.active { min-height: 100vh !important; }
+    .topbar { height: 66px; padding: 0 20px; }
+    .ocean-home { height: 365px; }
+    .home-title { top: 44px; left: 28px; }
+    .home-title h1 { font-size: 35px; }
+    .home-panel { padding: 23px 20px 34px; }
+    .main-menu { grid-template-columns: 1fr 1fr; }
+    .main-menu button { height: 122px; }
+    .data-screen, .form-screen { padding: 0 0 35px; }
+    .data-screen .screen-header, .form-screen .screen-header { padding: 15px 18px 8px; }
+    .data-screen > .demo-label { margin-left: 20px; }
+    .fish-list { padding: 0 20px; }
+    .summary-card { margin-left: 20px; margin-right: 20px; }
+    .form-screen form { max-width: none; margin-left: 20px; }
+    .form-intro { margin-left: 22px; }
+    #login.active, #signup.active { display: block !important; min-height: 100vh; }
+    .login-art { height: 245px; min-height: 0; }
+    .login-content { margin-top: -25px; padding: 0 28px 32px; display: block; }
+    .login-content h1 { font-size: 29px; }
+    .signup-content { max-width: none; margin: 0; }
+    .profile-card, .profile-info, .profile-note, .logout-button { max-width: none; margin-left: 20px; margin-right: 20px; }
+  }
+`;
+document.head.appendChild(mobileOnlyStyle);
+
+const demoLoginButton = document.createElement('button');
+demoLoginButton.type = 'button';
+demoLoginButton.className = 'demo-login-button';
+demoLoginButton.textContent = '테스트 아이디로 로그인';
+document.getElementById('loginForm').after(demoLoginButton);
+demoLoginButton.addEventListener('click', () => {
+  demoLoginActive = true;
+  sessionStorage.setItem('singsing-demo-login', 'true');
+  setProfile('testID');
+  go('home');
+  showToast('testID로 로그인되었습니다.');
+});
 
 const fishData = [
   { name: '고등어', icon: '🐟', market: '부산공동어시장', catch: 1820, catchLast: 1640, stock: 620, stockLast: 700, price: 8900, priceLast: 8500 },
@@ -86,6 +143,24 @@ const number = value => new Intl.NumberFormat('ko-KR').format(value);
 const percent = (now, last) => Math.round(((now - last) / last) * 100);
 const compareMarkup = (now, last) => { const change = percent(now, last); return `<small class="${change >= 0 ? 'up' : 'down'}">${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% · 작년 ${number(last)}</small>`; };
 
+function saveSaleRequest(fish, market, stock) {
+  const requested = window.prompt(`${fish}의 판매 요청 수량을 입력해 주세요.\n판매 가능 재고: ${stock}kg`, '');
+  if (requested === null) return;
+  const quantity = Number(requested);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    showToast('0보다 큰 수량(kg)을 입력해 주세요.');
+    return;
+  }
+  if (quantity > Number(stock)) {
+    showToast(`판매 가능 재고 ${stock}kg 이하로 요청해 주세요.`);
+    return;
+  }
+  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]');
+  requests.unshift({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), fish, market: market || '판매 시장 미입력', stock: Number(stock), quantity, requestedAt: new Date().toISOString() });
+  localStorage.setItem('singsing-sale-requests', JSON.stringify(requests));
+  showToast('판매 요청을 보냈습니다. 상인이 판매 등록 화면에서 확인합니다.');
+}
+
 function renderData(type) {
   const config = { catch: ['catch', 'catchLast', 'kg'], stock: ['stock', 'stockLast', 'kg'], price: ['price', 'priceLast', '원/kg'] }[type];
   const [key, lastKey, unit] = config;
@@ -95,7 +170,9 @@ function renderData(type) {
   const summaryLast = type === 'price' ? Math.round(last / fishData.length) : last;
   document.getElementById(type === 'catch' ? 'totalCatch' : type === 'stock' ? 'totalStock' : 'averagePrice').textContent = `${number(summary)}${unit}`;
   document.querySelector(`#${type} .summary-card p`).innerHTML = `작년 같은 날 대비 <b class="${percent(summary, summaryLast) >= 0 ? 'up' : 'down'}">${percent(summary, summaryLast) >= 0 ? '+' : ''}${percent(summary, summaryLast)}%</b>`;
-  document.getElementById(`${type}List`).innerHTML = fishData.map(fish => `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}</small></div><div class="fish-value"><strong>${number(fish[key])}${unit}</strong>${compareMarkup(fish[key], fish[lastKey])}</div></article>`).join('');
+  const list = document.getElementById(`${type}List`);
+  list.innerHTML = fishData.map(fish => { const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}</small></div><div class="fish-value"><strong>${number(fish[key])}${unit}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
+  if (type === 'stock') list.querySelectorAll('[data-stock-fish]').forEach(button => button.addEventListener('click', () => saveSaleRequest(button.dataset.stockFish, button.dataset.stockMarket, button.dataset.stockQuantity)));
 }
 
 ['catch', 'stock', 'price'].forEach(renderData);
@@ -204,7 +281,8 @@ async function loadSalesWithMenu() {
   });
   target.querySelectorAll('[data-cancel-sale]').forEach(button => {
     const sale = rows.find(item => item.id === button.dataset.cancelSale);
-    const isSeller = sale && auth.currentUser && sale.sellerUid === auth.currentUser.uid;
+    const user = activeUser();
+    const isSeller = sale && user && sale.sellerUid === user.uid;
     if (!isSeller) {
       button.remove();
       return;
@@ -248,6 +326,30 @@ document.getElementById('saleList').addEventListener('click', event => {
   document.querySelector('#purchaseForm input[type="number"]').placeholder = `최소 ${minimumOrder}kg`;
 });
 
+let pendingSaleRequestId = null;
+function loadSellerRequests() {
+  const saleScreen = document.getElementById('sale');
+  saleScreen.querySelector('.seller-request-panel')?.remove();
+  const requests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]');
+  if (!requests.length) return;
+  const panel = document.createElement('section');
+  panel.className = 'seller-request-panel';
+  panel.innerHTML = `<h3>소비자의 판매 요청</h3><p>요청을 선택하면 해당 품목과 시장, 요청 수량을 채워 판매 등록을 시작할 수 있어요.</p>${requests.map(request => `<article class="seller-request-row"><div><b>${request.fish} · 요청 ${request.quantity || request.stock}kg</b><small>${request.market} · 판매 가능 재고 ${request.stock}kg</small></div><button data-fill-sale-request="${request.id}">판매 등록하기</button></article>`).join('')}`;
+  saleScreen.querySelector('#saleForm').before(panel);
+  panel.querySelectorAll('[data-fill-sale-request]').forEach(button => button.addEventListener('click', () => {
+    const request = requests.find(item => item.id === button.dataset.fillSaleRequest);
+    if (!request) return;
+    const form = document.getElementById('saleForm');
+    setSelectOrDirect(form, 0, request.market);
+    setSelectOrDirect(form, 1, request.fish);
+    form.querySelectorAll('input[type="number"]')[0].value = request.quantity || request.stock;
+    pendingSaleRequestId = request.id;
+    panel.remove();
+    showToast('요청 정보를 채웠습니다. 판매 가격과 최소 주문 수량을 입력해 주세요.');
+  }));
+}
+document.querySelectorAll('[data-go="sale"]').forEach(button => button.addEventListener('click', loadSellerRequests));
+
 function selectedOrDirect(form, index) {
   const select = form.querySelectorAll('select')[index];
   const direct = form.querySelectorAll('.direct-input')[index];
@@ -268,6 +370,16 @@ const registerNumbers = registerFormElement.querySelectorAll('input[type="number
 const operationLocationLabel = document.createElement('label');
 operationLocationLabel.innerHTML = '조업 위치<input id="operationLocation" type="text" placeholder="예: 기장 앞바다 북쪽" /><small class="single-unit">직접 입력</small>';
 registerSelects[1].parentElement.after(operationLocationLabel);
+const stockMarketLabel = document.createElement('label');
+stockMarketLabel.innerHTML = '판매 시장<select id="stockMarket"><option value="">판매 시장을 선택해 주세요</option><option>부산공동어시장</option><option>자갈치시장</option><option>신동아수산물종합시장</option><option>민락어민활어직판장</option><option>기장시장</option><option>대변항 수산시장</option><option>다대포수산시장</option><option>명지시장</option></select>';
+registerNumbers[1].parentElement.after(stockMarketLabel);
+
+function updateStockMarketField() {
+  const shouldShow = registrationMode === 'catch' && Number(registerNumbers[1].value) > 0;
+  stockMarketLabel.hidden = !shouldShow;
+  document.getElementById('stockMarket').required = shouldShow;
+}
+registerNumbers[1].addEventListener('input', updateStockMarketField);
 
 function setLabelText(label, text) {
   const textNode = [...label.childNodes].find(node => node.nodeType === Node.TEXT_NODE);
@@ -296,12 +408,14 @@ function configureRegistration(mode) {
     setAreaOptions(['부산 연안', '기장 연안', '영도 연안', '다대포 연안'], '어획 해역을 선택해 주세요');
     setLabelText(catchField, '어획량');
     catchField.hidden = false;
-    stockField.hidden = true;
+    setLabelText(stockField, '판매 가능 재고');
+    stockField.hidden = false;
     priceField.hidden = true;
     operationLocationLabel.hidden = false;
     document.getElementById('operationLocation').required = true;
     header.textContent = '어획량 등록';
-    intro.innerHTML = '어획 해역과 조업 위치를 함께<br />등록해 신뢰도 높은 정보를 만듭니다.';
+    intro.innerHTML = '어획량과 판매 가능 재고를 함께 등록하면<br />재고 탭에도 자동으로 표시됩니다.';
+    updateStockMarketField();
   } else {
     setLabelText(registerSelects[0].parentElement, '판매 시장');
     setAreaOptions(['부산공동어시장', '자갈치시장', '신동아수산물종합시장', '민락어민활어직판장', '기장시장', '대변항 수산시장', '다대포수산시장', '명지시장'], '판매 시장을 선택해 주세요');
@@ -311,23 +425,30 @@ function configureRegistration(mode) {
     priceField.hidden = true;
     operationLocationLabel.hidden = true;
     document.getElementById('operationLocation').required = false;
+    stockMarketLabel.hidden = true;
+    document.getElementById('stockMarket').required = false;
     header.textContent = '재고 등록';
     intro.innerHTML = '판매할 시장과 품목별 재고를<br />등록해 구매자에게 알립니다.';
   }
 }
-configureRegistration('stock');
+configureRegistration('catch');
 document.querySelector('#price .icon-button').remove();
+document.querySelector('#catch .icon-button').addEventListener('click', () => configureRegistration('catch'), true);
+document.querySelector('#stock .icon-button')?.remove();
 
 function renderRegisteredInfo(type) {
   const list = document.querySelector(`#${type} .fish-list`);
   if (!list) return;
   list.querySelector('.registered-info')?.remove();
   const entries = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
-  const relevantEntries = entries.filter(item => !item.mode || item.mode === type);
+  const relevantEntries = entries.filter(item => {
+    if (type === 'catch') return !item.mode || item.mode === 'catch';
+    return (item.mode === 'catch' && Number(item.stock) > 0) || item.mode === 'stock';
+  });
   if (!relevantEntries.length) return;
   const panel = document.createElement('section');
   panel.className = 'registered-info';
-  panel.innerHTML = `<h3>내가 등록한 정보</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong><div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div></div></article>`; }).join('')}`;
+  panel.innerHTML = `<h3>${type === 'stock' ? '판매 가능 재고' : '내가 등록한 정보'}</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-request="${item.id}">판매 요청</button>` : ''; return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong>${stockRequest}<div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div></div></article>`; }).join('')}`;
   list.appendChild(panel);
   panel.querySelectorAll('[data-edit-info]').forEach(button => button.addEventListener('click', () => openInfoEditor(button.dataset.editInfo)));
   panel.querySelectorAll('[data-cancel-info]').forEach(button => button.addEventListener('click', () => {
@@ -337,6 +458,11 @@ function renderRegisteredInfo(type) {
     renderRegisteredInfo('catch');
     renderRegisteredInfo('stock');
     showToast('등록한 정보가 취소되었습니다.');
+  }));
+  panel.querySelectorAll('[data-stock-request]').forEach(button => button.addEventListener('click', () => {
+    const item = entries.find(entry => entry.id === button.dataset.stockRequest);
+    if (!item) return;
+    saveSaleRequest(item.fish, item.market, item.stock);
   }));
 }
 
@@ -361,13 +487,16 @@ function openInfoEditor(id) {
   if (!entry) return;
   const form = document.getElementById('registerForm');
   editingInfoId = id;
-  configureRegistration(entry.mode || 'stock');
-  setSelectOrDirect(form, 0, entry.mode === 'catch' ? entry.area : entry.market);
+  configureRegistration(entry.mode === 'stock' ? 'stock' : 'catch');
+  setSelectOrDirect(form, 0, entry.mode === 'stock' ? entry.market : entry.area);
   setSelectOrDirect(form, 1, entry.fish);
   const numbers = form.querySelectorAll('input[type="number"]');
   if (entry.mode === 'catch') {
     numbers[0].value = entry.catch;
+    numbers[1].value = entry.stock || '';
     document.getElementById('operationLocation').value = entry.operationLocation || '';
+    document.getElementById('stockMarket').value = entry.market || '';
+    updateStockMarketField();
   } else {
     numbers[1].value = entry.stock;
   }
@@ -376,7 +505,6 @@ function openInfoEditor(id) {
 }
 
 document.querySelector('#catch .icon-button').addEventListener('click', () => configureRegistration('catch'));
-document.querySelector('#stock .icon-button').addEventListener('click', () => configureRegistration('stock'));
 document.querySelector('[data-go="catch"]').addEventListener('click', () => renderRegisteredInfo('catch'));
 document.querySelector('[data-go="stock"]').addEventListener('click', () => renderRegisteredInfo('stock'));
 
@@ -390,12 +518,12 @@ directRegisterForm.addEventListener('submit', event => {
   const savedEntry = {
     id: editingInfoId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
     mode: registrationMode,
-    market: registrationMode === 'stock' ? selectedOrDirect(directRegisterForm, 0) : '',
+    market: registrationMode === 'catch' ? document.getElementById('stockMarket').value : selectedOrDirect(directRegisterForm, 0),
     area: registrationMode === 'catch' ? selectedOrDirect(directRegisterForm, 0) : '',
     operationLocation: registrationMode === 'catch' ? document.getElementById('operationLocation').value.trim() : '',
     fish: selectedOrDirect(directRegisterForm, 1),
     catch: registrationMode === 'catch' ? Number(numbers[0].value) : 0,
-    stock: registrationMode === 'stock' ? Number(numbers[1].value) : 0,
+    stock: Number(numbers[1].value) || 0,
     price: 0,
     createdAt: new Date().toISOString()
   };
@@ -408,12 +536,13 @@ directRegisterForm.addEventListener('submit', event => {
   localStorage.setItem('singsing-info-registrations', JSON.stringify(entries));
   directRegisterForm.reset();
   resetDirectInputs(directRegisterForm);
+  updateStockMarketField();
   editingInfoId = null;
   directRegisterForm.querySelector('.primary-button').childNodes[0].textContent = '정보 등록하기 ';
   renderRegisteredInfo('catch');
   renderRegisteredInfo('stock');
   showToast('수산물 정보가 등록되었습니다.');
-  go(lastInfoSource);
+  go('catch');
 }, true);
 
 // 판매 등록도 직접 입력 항목을 포함해 즉시 저장합니다.
@@ -425,8 +554,8 @@ directSaleForm.addEventListener('submit', event => {
   const sales = JSON.parse(localStorage.getItem('singsing-sales') || '[]');
   sales.unshift({
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-    sellerUid: auth.currentUser?.uid || 'local-user',
-    sellerEmail: auth.currentUser?.email || '시연용 판매자',
+    sellerUid: activeUser()?.uid || 'local-user',
+    sellerEmail: activeUser()?.email || '시연용 판매자',
     market: selectedOrDirect(directSaleForm, 0),
     fish: selectedOrDirect(directSaleForm, 1),
     quantity: Number(numbers[0].value),
@@ -434,6 +563,11 @@ directSaleForm.addEventListener('submit', event => {
     minimumOrder: Number(numbers[2].value)
   });
   localStorage.setItem('singsing-sales', JSON.stringify(sales));
+  if (pendingSaleRequestId) {
+    const remainingRequests = JSON.parse(localStorage.getItem('singsing-sale-requests') || '[]').filter(item => item.id !== pendingSaleRequestId);
+    localStorage.setItem('singsing-sale-requests', JSON.stringify(remainingRequests));
+    pendingSaleRequestId = null;
+  }
   directSaleForm.reset();
   resetDirectInputs(directSaleForm);
   showToast('판매 상품이 등록되었습니다. 구매 탭에서 확인해 보세요.');
@@ -506,7 +640,10 @@ document.getElementById('signupForm').addEventListener('submit', event => {
 });
 
 document.getElementById('logoutButton').addEventListener('click', () => {
+  demoLoginActive = false;
+  sessionStorage.removeItem('singsing-demo-login');
   signOut(auth).then(() => { setProfile('로그인 사용자'); go('login'); showToast('로그아웃되었습니다.'); });
 });
-if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { setProfile(user.email); loadHistory(); go('home'); } });
+if (demoLoginActive) setProfile('testID');
+if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { demoLoginActive = false; setProfile(user.email); loadHistory(); go('home'); } });
 document.querySelector('[data-go="profile"]').addEventListener('click', loadHistory);
