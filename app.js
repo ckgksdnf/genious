@@ -21,6 +21,11 @@ if (localStorage.getItem('singsing-demo-role-reset') !== '2026080720') {
   localStorage.removeItem('singsing-cancellation-log-demo-buyer');
   localStorage.setItem('singsing-demo-role-reset', '2026080720');
 }
+if (localStorage.getItem('singsing-info-owner-migration') !== '2026080722') {
+  const existingInfo = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').map(item => ({ ...item, ownerUid: item.ownerUid || 'demo-seller' }));
+  localStorage.setItem('singsing-info-registrations', JSON.stringify(existingInfo));
+  localStorage.setItem('singsing-info-owner-migration', '2026080722');
+}
 
 function addDirectInputOptions(formId) {
   const form = document.getElementById(formId);
@@ -679,10 +684,12 @@ function renderRegisteredInfo(type) {
   if (!relevantEntries.length) return;
   const panel = document.createElement('section');
   panel.className = 'registered-info';
-  panel.innerHTML = `<h3>${type === 'stock' ? '판매 가능 재고' : '내가 등록한 정보'}</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-request="${item.id}">판매 요청</button>` : ''; return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong>${stockRequest}<div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div></div></article>`; }).join('')}`;
+  panel.innerHTML = `<h3>${type === 'stock' ? '판매 가능 재고' : '등록된 어획 정보'}</h3>${relevantEntries.map(item => { const location = type === 'catch' ? `${item.area || item.market || '어획 해역'} · ${item.operationLocation || '조업 위치 미입력'}` : (item.market || '판매 시장'); const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-request="${item.id}">판매 요청</button>` : ''; const canManage = item.ownerUid === activeUser()?.uid; const manageActions = canManage ? `<div><button data-edit-info="${item.id}">수정</button><button data-cancel-info="${item.id}">취소</button></div>` : ''; return `<article class="fish-row user-info-row"><span class="fish-emoji">🐟</span><div class="fish-main"><b>${item.fish}</b><small>${location} · 직접 등록</small></div><div class="user-info-value"><strong>${type === 'catch' ? item.catch : item.stock}kg</strong>${stockRequest}${manageActions}</div></article>`; }).join('')}`;
   list.appendChild(panel);
   panel.querySelectorAll('[data-edit-info]').forEach(button => button.addEventListener('click', () => openInfoEditor(button.dataset.editInfo)));
   panel.querySelectorAll('[data-cancel-info]').forEach(button => button.addEventListener('click', () => {
+    const entry = entries.find(item => item.id === button.dataset.cancelInfo);
+    if (!entry || entry.ownerUid !== activeUser()?.uid) return;
     if (!window.confirm('취소하겠습니까?')) return;
     const updated = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').filter(item => item.id !== button.dataset.cancelInfo);
     localStorage.setItem('singsing-info-registrations', JSON.stringify(updated));
@@ -715,7 +722,7 @@ function setSelectOrDirect(form, index, value) {
 
 function openInfoEditor(id) {
   const entry = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]').find(item => item.id === id);
-  if (!entry) return;
+  if (!entry || entry.ownerUid !== activeUser()?.uid) return;
   const form = document.getElementById('registerForm');
   editingInfoId = id;
   configureRegistration(entry.mode === 'stock' ? 'stock' : 'catch');
@@ -752,6 +759,7 @@ directRegisterForm.addEventListener('submit', event => {
   const entries = JSON.parse(localStorage.getItem('singsing-info-registrations') || '[]');
   const savedEntry = {
     id: editingInfoId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+    ownerUid: activeUser()?.uid || 'local-user',
     mode: registrationMode,
     market: registrationMode === 'catch' ? selectedStockMarket() : selectedOrDirect(directRegisterForm, 0),
     area: registrationMode === 'catch' ? selectedOrDirect(directRegisterForm, 0) : '',
@@ -965,7 +973,7 @@ sellerScreen.id = 'seller';
 sellerScreen.className = 'app-screen role-screen';
 sellerScreen.setAttribute('aria-label', '판매자');
 sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}</div>`;
-document.querySelector('main').appendChild(sellerScreen);
+document.querySelector기했더너l('main').appendChild(sellerScreen);
 
 const bottomTabs = document.createElement('nav');
 bottomTabs.className = 'bottom-tabs';
@@ -982,3 +990,4 @@ const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer',
 bottomTabs.hidden = !initialTab;
 if (initialTab) bottomTabs.querySelector(`[data-tab="${initialTab}"]`).classList.add('active');
 updateRequestNotifications();
+기
