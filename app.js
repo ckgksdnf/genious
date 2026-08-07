@@ -5,9 +5,21 @@ document.querySelectorAll('.header-button').forEach(button => { button.textConte
 document.querySelectorAll('.header-button').forEach(button => button.remove());
 document.querySelectorAll('.profile-button').forEach(button => { button.textContent = '👤'; button.setAttribute('aria-label', '프로필'); button.title = '프로필'; });
 
-let demoLoginActive = sessionStorage.getItem('singsing-demo-login') === 'true';
+let demoAccount = sessionStorage.getItem('singsing-demo-account') || (sessionStorage.getItem('singsing-demo-login') === 'true' ? 'buyer' : '');
+let demoLoginActive = Boolean(demoAccount);
 function activeUser() {
-  return auth.currentUser || (demoLoginActive ? { uid: 'demo-test-id', email: 'testID' } : null);
+  if (auth.currentUser) return auth.currentUser;
+  if (!demoLoginActive) return null;
+  return demoAccount === 'seller' ? { uid: 'demo-seller', email: 'testSeller' } : { uid: 'demo-buyer', email: 'testBuyer' };
+}
+
+// 역할 분리 시연을 위해 이전 구매 요청 기록은 한 번만 초기화합니다.
+if (localStorage.getItem('singsing-demo-role-reset') !== '2026080720') {
+  localStorage.removeItem('singsing-purchase-requests');
+  localStorage.removeItem('singsing-my-request-ids-demo-buyer');
+  localStorage.removeItem('singsing-my-request-ids-demo-seller');
+  localStorage.removeItem('singsing-cancellation-log-demo-buyer');
+  localStorage.setItem('singsing-demo-role-reset', '2026080720');
 }
 
 function addDirectInputOptions(formId) {
@@ -124,18 +136,20 @@ mobileOnlyStyle.textContent = `
 `;
 document.head.appendChild(mobileOnlyStyle);
 
-const demoLoginButton = document.createElement('button');
-demoLoginButton.type = 'button';
-demoLoginButton.className = 'demo-login-button';
-demoLoginButton.textContent = '테스트 아이디로 로그인';
-document.getElementById('loginForm').after(demoLoginButton);
-demoLoginButton.addEventListener('click', () => {
+const demoLoginChoices = document.createElement('div');
+demoLoginChoices.className = 'demo-login-choices';
+demoLoginChoices.innerHTML = '<button type="button" class="demo-login-button" data-demo-account="buyer">구매자 테스트 로그인</button><button type="button" class="demo-login-button" data-demo-account="seller">판매자 테스트 로그인</button>';
+document.getElementById('loginForm').after(demoLoginChoices);
+demoLoginChoices.querySelectorAll('button').forEach(button => button.addEventListener('click', () => {
+  demoAccount = button.dataset.demoAccount;
   demoLoginActive = true;
-  sessionStorage.setItem('singsing-demo-login', 'true');
-  setProfile('testID');
+  sessionStorage.setItem('singsing-demo-account', demoAccount);
+  sessionStorage.removeItem('singsing-demo-login');
+  const user = activeUser();
+  setProfile(user.email);
   go('home');
-  showToast('testID로 로그인되었습니다.');
-});
+  showToast(`${user.email}로 로그인되었습니다.`);
+}));
 
 const fishData = [
   { name: '고등어', icon: '🐟', market: '부산공동어시장', catch: 1820, catchLast: 1640, stock: 620, stockLast: 700, price: 8900, priceLast: 8500 },
@@ -201,8 +215,11 @@ let sellerGateTarget = 'home';
 function sellerVerificationKey() {
   return `singsing-seller-verified-${activeUser()?.uid || 'not-signed-in'}`;
 }
+function isBuyerDemo() {
+  return demoLoginActive && demoAccount === 'buyer';
+}
 function isSellerVerified() {
-  return localStorage.getItem(sellerVerificationKey()) === 'true';
+  return !isBuyerDemo() && localStorage.getItem(sellerVerificationKey()) === 'true';
 }
 
 const sellerVerifyScreen = document.createElement('section');
@@ -220,11 +237,15 @@ document.querySelector('#profile .logout-button').before(sellerStatus);
 
 function refreshSellerStatus() {
   const verified = isSellerVerified();
-  sellerStatus.querySelector('b').textContent = verified ? '판매자 인증 완료' : '판매자 인증 필요';
-  sellerStatus.querySelector('small').textContent = verified ? '어획량 등록과 판매 등록을 이용할 수 있어요.' : '어획량·판매 등록 전 시연용 인증을 진행해 주세요.';
-  sellerStatus.querySelector('button').textContent = verified ? '인증 정보 확인' : '판매자 인증하기';
+  sellerStatus.querySelector('b').textContent = isBuyerDemo() ? '구매자 테스트 계정' : verified ? '판매자 인증 완료' : '판매자 인증 필요';
+  sellerStatus.querySelector('small').textContent = isBuyerDemo() ? '구매자 테스트 계정은 판매 등록을 이용할 수 없어요.' : verified ? '어획량 등록과 판매 등록을 이용할 수 있어요.' : '어획량·판매 등록 전 시연용 인증을 진행해 주세요.';
+  sellerStatus.querySelector('button').textContent = isBuyerDemo() ? '판매자 테스트 계정으로 로그인' : verified ? '인증 정보 확인' : '판매자 인증하기';
 }
-sellerStatus.querySelector('button').addEventListener('click', () => { sellerGateTarget = 'profile'; go('sellerVerify'); });
+sellerStatus.querySelector('button').addEventListener('click', () => {
+  if (isBuyerDemo()) { showToast('로그아웃 후 판매자 테스트 계정으로 로그인해 주세요.'); return; }
+  sellerGateTarget = 'profile';
+  go('sellerVerify');
+});
 
 const sellerInboundPanel = document.createElement('section');
 sellerInboundPanel.className = 'seller-status seller-inbound';
@@ -232,9 +253,8 @@ sellerInboundPanel.hidden = true;
 document.querySelector('#profile .logout-button').before(sellerInboundPanel);
 
 function renderSellerPurchaseRequests(target, compact = false) {
-  const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
-    return (item.status || 'requested') !== 'cancelled';
-  });
+  const user = activeUser();
+  const incoming = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => item.sellerUid === user?.uid && (item.status || 'requested') !== 'cancelled');
   if (compact) target.hidden = !incoming.length;
   if (!incoming.length) {
     if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
@@ -266,9 +286,10 @@ function loadSellerPurchaseRequests() {
   if (managementList) renderSellerPurchaseRequests(managementList);
 }
 function updateRequestNotifications() {
+  const user = activeUser();
   const count = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').filter(item => {
     const status = item.status || 'requested';
-    return status === 'requested' || status === 'cancel_requested';
+    return item.sellerUid === user?.uid && (status === 'requested' || status === 'cancel_requested');
   }).length;
   const targets = [document.querySelector('#sellerRoleMenu button:nth-child(3)'), document.querySelector('.bottom-tabs [data-tab="seller"]')];
   targets.forEach(target => {
@@ -278,6 +299,10 @@ function updateRequestNotifications() {
   });
 }
 function openSellerRequestManagement() {
+  if (isBuyerDemo()) {
+    showToast('구매자 테스트 계정은 구매 요청을 관리할 수 없습니다.');
+    return;
+  }
   if (!activeUser()) {
     showToast('로그인 후 판매자 인증을 해야합니다.');
     go('login');
@@ -295,6 +320,11 @@ function openSellerRequestManagement() {
 
 sellerVerifyScreen.querySelector('#sellerVerifyForm').addEventListener('submit', event => {
   event.preventDefault();
+  if (isBuyerDemo()) {
+    showToast('구매자 테스트 계정은 판매자 인증을 할 수 없습니다.');
+    go('home');
+    return;
+  }
   const number = document.getElementById('sellerVerifyNumber').value.trim();
   if (!/^\d{10}$/.test(number)) {
     showToast('숫자 10자리 형식으로 입력해 주세요.');
@@ -463,8 +493,6 @@ function loadAquarium() {
   const allRequests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
   const myRequestIds = JSON.parse(localStorage.getItem(`singsing-my-request-ids-${user?.uid || 'local-user'}`) || '[]');
   const requests = allRequests.filter(item => {
-    // testID는 한 기기에서 구매자·판매자 시연을 함께 진행하므로 저장된 요청을 모두 확인합니다.
-    if (user?.uid === 'demo-test-id') return true;
     return !item.buyerUid || item.buyerUid === user?.uid || myRequestIds.includes(item.id);
   });
   target.innerHTML = requests.length
@@ -840,14 +868,22 @@ document.getElementById('signupForm').addEventListener('submit', event => {
 
 document.getElementById('logoutButton').addEventListener('click', () => {
   demoLoginActive = false;
+  demoAccount = '';
+  sessionStorage.removeItem('singsing-demo-account');
   sessionStorage.removeItem('singsing-demo-login');
   signOut(auth).then(() => { setProfile('로그인 사용자'); go('login'); showToast('로그아웃되었습니다.'); });
 });
-if (demoLoginActive) setProfile('testID');
-if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { demoLoginActive = false; setProfile(user.email); loadHistory(); go('home'); } });
+if (demoLoginActive) setProfile(activeUser().email);
+if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { demoLoginActive = false; demoAccount = ''; setProfile(user.email); loadHistory(); go('home'); } });
 document.querySelector('[data-go="profile"]').addEventListener('click', () => { loadHistory(); loadSellerPurchaseRequests(); });
 
 function requireSellerVerification(event, target) {
+  if (isBuyerDemo()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showToast('구매자 테스트 계정은 판매 등록을 할 수 없습니다.');
+    return;
+  }
   if (isSellerVerified()) return;
   event.preventDefault();
   event.stopImmediatePropagation();
@@ -919,7 +955,7 @@ document.querySelector('main').appendChild(bottomTabs);
 
 document.querySelectorAll('#homeRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['catch', 'price'][index]; go(screen); if (screen === 'catch') renderRegisteredInfo('catch'); }));
 document.querySelectorAll('#buyerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { const screen = ['purchase', 'aquarium', 'stock'][index]; go(screen); if (screen === 'purchase') loadSalesWithMenu(); if (screen === 'aquarium') loadAquarium(); if (screen === 'stock') renderRegisteredInfo('stock'); }));
-document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1) { if (!isSellerVerified()) { sellerGateTarget = 'sale'; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go('sale'); loadSellerRequests(); return; } openSellerRequestManagement(); }));
+document.querySelectorAll('#sellerRoleMenu button').forEach((button, index) => button.addEventListener('click', () => { if (isBuyerDemo()) { showToast('구매자 테스트 계정은 판매자 기능을 이용할 수 없습니다.'); return; } if (index === 0) { sellerGateTarget = 'seller'; go('sellerVerify'); return; } if (index === 1) { if (!isSellerVerified()) { sellerGateTarget = 'sale'; showToast('판매자 인증을 해야합니다.'); go('sellerVerify'); return; } go('sale'); loadSellerRequests(); return; } openSellerRequestManagement(); }));
 bottomTabs.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const tab = button.dataset.tab; if (tab === 'profile') { go('profile'); loadHistory(); loadSellerPurchaseRequests(); } else go(tab); }));
 const initialScreen = document.querySelector('.app-screen.active')?.id;
 const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer', purchase: 'buyer', aquarium: 'buyer', stock: 'buyer', seller: 'seller', sellerVerify: 'seller', sale: 'seller', register: 'seller', requestManage: 'seller', profile: 'profile' }[initialScreen];
