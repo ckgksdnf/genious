@@ -160,6 +160,13 @@ visualStyle.textContent = `
   .seller-status button { width: 100%; margin-top: 10px; padding: 10px; border: 0; border-radius: 8px; background: #0877bb; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
   .seller-inbound[hidden] { display: none; }
   .seller-inbound .seller-request-row button { width: auto; margin: 0; padding: 8px 9px; }
+  .trade-setup-form { width: 100%; margin-top: 10px; padding: 11px; border: 1px solid #b9deea; border-radius: 10px; background: #fff; }
+  .trade-setup-form label { display: block; margin-top: 7px; color: #426c7f; font-size: 11px; font-weight: 700; }
+  .trade-setup-form input { width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 1px solid #bddce8; border-radius: 7px; font: inherit; }
+  .trade-setup-form button { width: 100%; margin-top: 10px; }
+  .trade-confirmation { margin-top: 10px; padding: 10px; border-radius: 9px; background: #eef9f2; color: #216b4c; font-size: 11px; line-height: 1.65; }
+  .trade-confirmation b, .trade-confirmation small { display: block; }
+  .trade-confirmation select { width: 100%; margin-top: 6px; padding: 7px; border: 1px solid #9fd2b5; border-radius: 7px; background: #fff; color: #265e46; font: inherit; }
 `;
 document.head.appendChild(visualStyle);
 
@@ -324,13 +331,24 @@ function renderSellerPurchaseRequests(target, compact = false) {
     if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
     return;
   }
-  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>판매자 확인 후 취소는 판매자의 승인으로만 완료됩니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const action = status === 'requested' ? `<button data-confirm-purchase="${item.id}">구매 요청 수락</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">수락 완료</span>'; return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${purchaseStatusText(status)}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small></div>${action}</article>`; }).join('')}`;
-  target.querySelectorAll('[data-confirm-purchase]').forEach(button => button.addEventListener('click', () => {
-    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === button.dataset.confirmPurchase ? { ...item, status: 'confirmed' } : item);
-    localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
-    showToast('구매 요청을 수락했습니다.');
-    loadSellerPurchaseRequests();
-    updateRequestNotifications();
+  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>거래 장소와 시간 후보를 설정한 뒤 거래를 확정합니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const action = status === 'requested' ? `<button data-open-trade-setup="${item.id}">거래 확정 설정</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">거래 확정</span>'; const summary = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래 장소: ${item.meetingPlace}</b><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small></div>` : ''; return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${purchaseStatusText(status)}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small>${summary}</div>${action}</article>`; }).join('')}`;
+  target.querySelectorAll('[data-open-trade-setup]').forEach(button => button.addEventListener('click', () => {
+    const row = button.closest('.seller-request-row');
+    if (row.querySelector('.trade-setup-form')) return;
+    row.insertAdjacentHTML('beforeend', `<form class="trade-setup-form" data-trade-request="${button.dataset.openTradeSetup}"><b>거래 확정 설정</b><label>정확한 거래 장소<input name="place" type="text" placeholder="예: 부산공동어시장 1번 경매장 앞" required /></label><label>시간 후보 1<input name="time1" type="text" placeholder="예: 2월 27일 10:00" required /></label><label>시간 후보 2<input name="time2" type="text" placeholder="예: 2월 27일 14:00" required /></label><label>시간 후보 3<input name="time3" type="text" placeholder="예: 2월 28일 09:00" required /></label><button type="submit">거래 확정하기</button></form>`);
+    button.remove();
+    row.querySelector('.trade-setup-form').addEventListener('submit', event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const meetingPlace = form.elements.place.value.trim();
+      const meetingTimes = [form.elements.time1.value.trim(), form.elements.time2.value.trim(), form.elements.time3.value.trim()];
+      if (!meetingPlace || meetingTimes.some(value => !value)) return;
+      const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === form.dataset.tradeRequest ? { ...item, status: 'confirmed', meetingPlace, meetingTimes } : item);
+      localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+      showToast('거래확정! 구매자에게 거래 장소와 시간 후보가 전달되었습니다.');
+      loadSellerPurchaseRequests();
+      updateRequestNotifications();
+    });
   }));
   target.querySelectorAll('[data-approve-cancel]').forEach(button => button.addEventListener('click', () => {
     const requests = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]');
@@ -549,7 +567,7 @@ function recordCancellation(uid) {
   localStorage.setItem(cancellationLogKey(uid), JSON.stringify(times));
 }
 function purchaseStatusText(status) {
-  return ({ requested: '요청 접수', confirmed: '판매자 확인', cancel_requested: '취소 요청 검토 중', cancelled: '취소 완료' })[status] || '요청 접수';
+  return ({ requested: '요청 접수', confirmed: '거래 확정', cancel_requested: '취소 요청 검토 중', cancelled: '취소 완료' })[status] || '요청 접수';
 }
 function loadAquarium() {
   const target = document.getElementById('aquariumList');
@@ -564,7 +582,8 @@ function loadAquarium() {
       const status = item.status || 'requested';
       const action = status === 'requested' ? `<button class="more-button" data-cancel-request="${item.id}" aria-label="구매 요청 취소">⋯</button>` : status === 'confirmed' ? `<button class="more-button" data-request-cancel="${item.id}" aria-label="취소 요청">⋯</button>` : '';
       const reason = status === 'cancel_requested' ? `<small>취소 사유: ${item.cancellationReason}</small>` : '';
-      return `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${Number(item.price).toLocaleString('ko-KR')}원/kg</strong>${reason}</div><div class="card-actions"><span class="request-state">${purchaseStatusText(status)}</span>${action}</div></article>`;
+      const trade = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래확정</b><small>거래 장소: ${item.meetingPlace}</small><label>거래 시간 선택<select data-trade-time-select="${item.id}"><option value="">시간 후보를 선택하세요</option>${(item.meetingTimes || []).map(time => `<option value="${time}" ${item.selectedMeetingTime === time ? 'selected' : ''}>${time}</option>`).join('')}</select></label>${item.selectedMeetingTime ? `<small>선택한 시간: ${item.selectedMeetingTime}</small>` : ''}</div>` : '';
+      return `<article class="sale-card aquarium-card"><div><b>${item.fish}</b><small>${item.market} · ${item.when}</small><strong>${item.quantity}kg · ${Number(item.price).toLocaleString('ko-KR')}원/kg</strong>${trade}${reason}</div><div class="card-actions"><span class="request-state">${purchaseStatusText(status)}</span>${action}</div></article>`;
     }).join('')
     : '<p class="empty-sale">아직 구매 요청한 상품이 없습니다.</p>';
   target.querySelectorAll('[data-cancel-request]').forEach(button => button.addEventListener('click', () => {
@@ -590,6 +609,14 @@ function loadAquarium() {
     showToast('판매자에게 취소 요청을 보냈습니다.');
     loadAquarium();
     updateRequestNotifications();
+  }));
+  target.querySelectorAll('[data-trade-time-select]').forEach(select => select.addEventListener('change', event => {
+    const selectedMeetingTime = event.currentTarget.value;
+    if (!selectedMeetingTime) return;
+    const updated = JSON.parse(localStorage.getItem('singsing-purchase-requests') || '[]').map(item => item.id === event.currentTarget.dataset.tradeTimeSelect ? { ...item, selectedMeetingTime } : item);
+    localStorage.setItem('singsing-purchase-requests', JSON.stringify(updated));
+    showToast('거래 시간을 선택했습니다. 판매자에게 전달됩니다.');
+    loadAquarium();
   }));
 }
 
