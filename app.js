@@ -331,11 +331,12 @@ function renderSellerPurchaseRequests(target, compact = false) {
     if (!compact) target.innerHTML = '<p class="empty-sale">아직 받은 구매 요청이 없습니다.</p>';
     return;
   }
-  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>거래 장소와 시간 후보를 설정한 뒤 거래를 확정합니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const needsTradeSetup = status === 'requested' || (status === 'confirmed' && !item.meetingPlace); const action = needsTradeSetup ? `<button data-open-trade-setup="${item.id}">${status === 'confirmed' ? '거래 정보 설정' : '구매 요청 수락'}</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">거래 확정</span>'; const summary = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래 장소: ${item.meetingPlace}</b><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small></div>` : ''; const statusText = status === 'confirmed' && !item.meetingPlace ? '거래 정보 설정 필요' : purchaseStatusText(status); return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · ${statusText}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small>${summary}</div>${action}</article>`; }).join('')}`;
+  target.innerHTML = `${compact ? '<b>받은 구매 요청</b><small>거래 장소와 시간 후보를 설정한 뒤 거래를 확정합니다.</small>' : ''}${incoming.map(item => { const status = item.status || 'requested'; const needsTradeSetup = status === 'requested' || (status === 'confirmed' && !item.meetingPlace); const action = needsTradeSetup ? `<button data-open-trade-setup="${item.id}">${status === 'confirmed' ? '거래 정보 설정' : '구매 요청 수락'}</button>` : status === 'cancel_requested' ? `<button data-approve-cancel="${item.id}">취소 승인</button>` : '<span class="request-state">거래 확정</span>'; const summary = status === 'confirmed' && item.meetingPlace ? `<div class="trade-confirmation"><b>거래 장소: ${item.meetingPlace}</b><small>시간 후보: ${(item.meetingTimes || []).join(' · ')}</small></div>` : ''; const statusText = status === 'confirmed' && !item.meetingPlace ? '거래 정보 설정 필요' : purchaseStatusText(status); return `<article class="seller-request-row"><div><b>${item.fish} · ${item.quantity}kg</b><small>${item.market} · 구매 희망: ${item.when || '미입력'} · ${statusText}${item.cancellationReason ? ` · 사유: ${item.cancellationReason}` : ''}</small>${summary}</div>${action}</article>`; }).join('')}`;
   target.querySelectorAll('[data-open-trade-setup]').forEach(button => button.addEventListener('click', () => {
     const row = button.closest('.seller-request-row');
     if (row.querySelector('.trade-setup-form')) return;
-    row.insertAdjacentHTML('beforeend', `<form class="trade-setup-form" data-trade-request="${button.dataset.openTradeSetup}"><b>거래 확정 설정</b><label>정확한 거래 장소<input name="place" type="text" placeholder="예: 부산공동어시장 1번 경매장 앞" required /></label><label>시간 후보 1<input name="time1" type="text" placeholder="예: 2월 27일 10:00" required /></label><label>시간 후보 2<input name="time2" type="text" placeholder="예: 2월 27일 14:00" required /></label><label>시간 후보 3<input name="time3" type="text" placeholder="예: 2월 28일 09:00" required /></label><button type="submit">거래 확정하기</button></form>`);
+    const request = incoming.find(item => item.id === button.dataset.openTradeSetup);
+    row.insertAdjacentHTML('beforeend', `<form class="trade-setup-form" data-trade-request="${button.dataset.openTradeSetup}"><b>거래 확정 설정</b><small>구매자 희망 시기: ${request?.when || '미입력'}</small><label>정확한 거래 장소<input name="place" type="text" placeholder="예: 부산공동어시장 1번 경매장 앞" required /></label><label>시간 후보 1<input name="time1" type="text" placeholder="예: 2월 27일 10:00" required /></label><label>시간 후보 2<input name="time2" type="text" placeholder="예: 2월 27일 14:00" required /></label><label>시간 후보 3<input name="time3" type="text" placeholder="예: 2월 28일 09:00" required /></label><button type="submit">거래 확정하기</button></form>`);
     button.remove();
     row.querySelector('.trade-setup-form').addEventListener('submit', event => {
       event.preventDefault();
@@ -959,6 +960,7 @@ document.querySelector('#purchaseForm button[type="submit"]').addEventListener('
 function setProfile(id) {
   document.getElementById('profileId').textContent = id;
   refreshSellerStatus();
+  updateRequestNotifications();
 }
 
 document.getElementById('loginForm').addEventListener('submit', event => {
