@@ -84,6 +84,11 @@ visualStyle.textContent = `
   .seller-request-row b, .seller-request-row small { display: block; }
   .seller-request-row small { color: #527487; font-size: 10px; margin-top: 3px; }
   .seller-request-row button { border: 0; border-radius: 8px; padding: 8px 9px; background: #0877bb; color: #fff; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .seller-status { margin: 16px 20px; padding: 13px; border: 1px solid #b9deea; border-radius: 12px; background: #effbff; }
+  .seller-status b, .seller-status small { display: block; }
+  .seller-status b { color: #063d72; font-size: 13px; }
+  .seller-status small { color: #527487; font-size: 10px; margin-top: 4px; }
+  .seller-status button { width: 100%; margin-top: 10px; padding: 10px; border: 0; border-radius: 8px; background: #0877bb; color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
 `;
 document.head.appendChild(visualStyle);
 
@@ -183,6 +188,49 @@ function go(screen) {
   document.getElementById(screen).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+let sellerGateTarget = 'home';
+function sellerVerificationKey() {
+  return `singsing-seller-verified-${activeUser()?.uid || 'not-signed-in'}`;
+}
+function isSellerVerified() {
+  return localStorage.getItem(sellerVerificationKey()) === 'true';
+}
+
+const sellerVerifyScreen = document.createElement('section');
+sellerVerifyScreen.id = 'sellerVerify';
+sellerVerifyScreen.className = 'app-screen form-screen';
+sellerVerifyScreen.setAttribute('aria-label', '판매자 인증');
+sellerVerifyScreen.innerHTML = '<div class="screen-header"><button class="back" data-go="home">‹</button><div><small>DEMO SELLER CHECK</small><h2>판매자 인증</h2></div><span></span></div><p class="form-intro">시연용 인증을 마친 판매자만<br />어획량·판매 상품을 등록할 수 있어요.</p><form id="sellerVerifyForm"><label>사업자등록번호 형식<input id="sellerVerifyNumber" type="text" inputmode="numeric" maxlength="10" placeholder="숫자 10자리" required /><small class="single-unit">시연용</small></label><p class="input-note">※ 실제 사업자등록번호는 입력하지 마세요. 번호는 저장되지 않으며 형식만 확인합니다.</p><button class="primary-button" type="submit">판매자 인증 완료 <span>→</span></button></form>';
+document.querySelector('main').appendChild(sellerVerifyScreen);
+sellerVerifyScreen.querySelector('[data-go="home"]').addEventListener('click', () => go('home'));
+
+const sellerStatus = document.createElement('section');
+sellerStatus.className = 'seller-status';
+sellerStatus.innerHTML = '<b></b><small></small><button type="button">판매자 인증하기</button>';
+document.querySelector('#profile .logout-button').before(sellerStatus);
+
+function refreshSellerStatus() {
+  const verified = isSellerVerified();
+  sellerStatus.querySelector('b').textContent = verified ? '판매자 인증 완료' : '판매자 인증 필요';
+  sellerStatus.querySelector('small').textContent = verified ? '어획량 등록과 판매 등록을 이용할 수 있어요.' : '어획량·판매 등록 전 시연용 인증을 진행해 주세요.';
+  sellerStatus.querySelector('button').textContent = verified ? '인증 정보 확인' : '판매자 인증하기';
+}
+sellerStatus.querySelector('button').addEventListener('click', () => { sellerGateTarget = 'profile'; go('sellerVerify'); });
+
+sellerVerifyScreen.querySelector('#sellerVerifyForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const number = document.getElementById('sellerVerifyNumber').value.trim();
+  if (!/^\d{10}$/.test(number)) {
+    showToast('숫자 10자리 형식으로 입력해 주세요.');
+    return;
+  }
+  localStorage.setItem(sellerVerificationKey(), 'true');
+  event.currentTarget.reset();
+  refreshSellerStatus();
+  showToast('시연용 판매자 인증이 완료되었습니다.');
+  go(sellerGateTarget);
+});
 
 document.querySelectorAll('[data-go]').forEach(button => button.addEventListener('click', () => go(button.dataset.go)));
 
@@ -617,6 +665,7 @@ document.querySelector('#purchaseForm button[type="submit"]').addEventListener('
 
 function setProfile(id) {
   document.getElementById('profileId').textContent = id;
+  refreshSellerStatus();
 }
 
 document.getElementById('loginForm').addEventListener('submit', event => {
@@ -647,3 +696,20 @@ document.getElementById('logoutButton').addEventListener('click', () => {
 if (demoLoginActive) setProfile('testID');
 if (firebaseReady) onAuthStateChanged(auth, user => { if (user) { demoLoginActive = false; setProfile(user.email); loadHistory(); go('home'); } });
 document.querySelector('[data-go="profile"]').addEventListener('click', loadHistory);
+
+function requireSellerVerification(event, target) {
+  if (isSellerVerified()) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  sellerGateTarget = target;
+  if (!activeUser()) {
+    showToast('판매자 인증 전 로그인이 필요합니다.');
+    go('login');
+    return;
+  }
+  refreshSellerStatus();
+  go('sellerVerify');
+}
+document.querySelectorAll('[data-go="sale"]').forEach(button => button.addEventListener('click', event => requireSellerVerification(event, 'sale'), true));
+document.querySelector('#catch .icon-button').addEventListener('click', event => requireSellerVerification(event, 'register'), true);
+refreshSellerStatus();
