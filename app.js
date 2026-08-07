@@ -93,6 +93,7 @@ visualStyle.textContent = `
   .sale-card .card-actions > button[data-sale] { background: #0877bb; box-shadow: 0 3px 7px #0877bb2e; }
   .sale-card .more-button { min-width: 34px; padding: 5px 8px !important; background: #edf7fb; color: #315e73; border: 1px solid #c9e3ed; box-shadow: none; font-size: 19px; line-height: 1; }
   .request-state { display: inline-block; padding: 7px 9px; border-radius: 8px; background: #e4f7ef; color: #087f72; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .unavailable { color: #637e89 !important; font-weight: 700; }
   .stock-request-button { margin-top: 7px; border: 1px solid #76b6d2; border-radius: 7px; background: #fff; color: #075b89; padding: 5px 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
   .seller-request-panel { margin: 0 20px 18px; padding: 14px; border: 1px solid #b9deea; border-radius: 12px; background: #effbff; }
   .seller-request-panel h3 { margin: 0 0 5px; color: #063d72; font-size: 14px; }
@@ -157,17 +158,17 @@ demoLoginChoices.querySelectorAll('button').forEach(button => button.addEventLis
 }));
 
 const fishData = [
-  { name: '고등어', icon: '🐟', market: '부산공동어시장', catch: 1820, catchLast: 1640, stock: 620, stockLast: 700, price: 8900, priceLast: 8500 },
-  { name: '갑오징어', icon: '🦑', market: '대변항 수산시장', catch: 310, catchLast: 280, stock: 125, stockLast: 110, price: 18500, priceLast: 17200 },
-  { name: '갈치', icon: '🐟', market: '부산공동어시장', catch: 780, catchLast: 850, stock: 330, stockLast: 365, price: 24000, priceLast: 22100 },
-  { name: '광어', icon: '🐠', market: '민락어민활어직판장', catch: 420, catchLast: 390, stock: 190, stockLast: 175, price: 19800, priceLast: 20300 },
-  { name: '우럭', icon: '🐡', market: '기장시장', catch: 240, catchLast: 260, stock: 95, stockLast: 110, price: 21500, priceLast: 20700 },
-  { name: '멸치', icon: '🐟', market: '다대포수산시장', catch: 3670, catchLast: 3220, stock: 1480, stockLast: 1320, price: 6400, priceLast: 5900 }
+  { name: '고등어', icon: '🐟', market: '부산공동어시장', catch: 2430, catchLast: null, stock: null, stockLast: null, price: 4951, priceLast: null },
+  { name: '갑오징어', icon: '🦑', market: '부산공동어시장', catch: null, catchLast: null, stock: null, stockLast: null, price: null, priceLast: null },
+  { name: '갈치', icon: '🐟', market: '부산공동어시장', catch: 342, catchLast: null, stock: null, stockLast: null, price: 9532, priceLast: null },
+  { name: '광어', icon: '🐠', market: '부산공동어시장', note: '공식 통계명: 넙치', catch: 36, catchLast: null, stock: null, stockLast: null, price: 1111, priceLast: null },
+  { name: '우럭', icon: '🐡', market: '부산공동어시장', note: '공식 통계명: 조피볼락', catch: null, catchLast: null, stock: null, stockLast: null, price: null, priceLast: null },
+  { name: '멸치', icon: '🐟', market: '부산공동어시장', catch: 0, catchLast: null, stock: null, stockLast: null, price: null, priceLast: null }
 ];
 
 const number = value => new Intl.NumberFormat('ko-KR').format(value);
-const percent = (now, last) => Math.round(((now - last) / last) * 100);
-const compareMarkup = (now, last) => { const change = percent(now, last); return `<small class="${change >= 0 ? 'up' : 'down'}">${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% · 작년 ${number(last)}</small>`; };
+const percent = (now, last) => Number.isFinite(now) && Number.isFinite(last) && last !== 0 ? Math.round(((now - last) / last) * 100) : null;
+const compareMarkup = (now, last) => { const change = percent(now, last); return change === null ? '<small class="unavailable">작년 같은 날 공개 데이터 없음</small>' : `<small class="${change >= 0 ? 'up' : 'down'}">${change >= 0 ? '▲' : '▼'} ${Math.abs(change)}% · 작년 ${number(last)}</small>`; };
 
 function saveSaleRequest(fish, market, stock) {
   const requested = window.prompt(`${fish}의 판매 요청 수량을 입력해 주세요.\n판매 가능 재고: ${stock}kg`, '');
@@ -190,14 +191,21 @@ function saveSaleRequest(fish, market, stock) {
 function renderData(type) {
   const config = { catch: ['catch', 'catchLast', 'kg'], stock: ['stock', 'stockLast', 'kg'], price: ['price', 'priceLast', '원/kg'] }[type];
   const [key, lastKey, unit] = config;
-  const now = fishData.reduce((sum, fish) => sum + fish[key], 0);
-  const last = fishData.reduce((sum, fish) => sum + fish[lastKey], 0);
-  const summary = type === 'price' ? Math.round(now / fishData.length) : now;
-  const summaryLast = type === 'price' ? Math.round(last / fishData.length) : last;
-  document.getElementById(type === 'catch' ? 'totalCatch' : type === 'stock' ? 'totalStock' : 'averagePrice').textContent = `${number(summary)}${unit}`;
-  document.querySelector(`#${type} .summary-card p`).innerHTML = `작년 같은 날 대비 <b class="${percent(summary, summaryLast) >= 0 ? 'up' : 'down'}">${percent(summary, summaryLast) >= 0 ? '+' : ''}${percent(summary, summaryLast)}%</b>`;
+  const known = fishData.filter(fish => Number.isFinite(fish[key]));
+  const now = known.reduce((sum, fish) => sum + fish[key], 0);
+  const knownLast = fishData.filter(fish => Number.isFinite(fish[lastKey]));
+  const last = knownLast.reduce((sum, fish) => sum + fish[lastKey], 0);
+  const summary = type === 'price' && known.length ? Math.round(now / known.length) : now;
+  const summaryLast = type === 'price' && knownLast.length ? Math.round(last / knownLast.length) : last;
+  const summaryTarget = document.getElementById(type === 'catch' ? 'totalCatch' : type === 'stock' ? 'totalStock' : 'averagePrice');
+  const summaryLabel = document.querySelector(`#${type} .summary-card span`);
+  const summaryCopy = type === 'catch' ? '확인된 총 위판량' : type === 'price' ? '시세 확인 품목' : '공개 재고 정보';
+  summaryLabel.textContent = summaryCopy;
+  summaryTarget.textContent = type === 'stock' ? '공개 데이터 없음' : type === 'price' ? `${known.length}개 품목` : `${number(summary)}${unit}`;
+  const summaryChange = percent(summary, summaryLast);
+  document.querySelector(`#${type} .summary-card p`).innerHTML = summaryChange === null ? '작년 같은 날 공개 데이터 없음' : `작년 같은 날 대비 <b class="${summaryChange >= 0 ? 'up' : 'down'}">${summaryChange >= 0 ? '+' : ''}${summaryChange}%</b>`;
   const list = document.getElementById(`${type}List`);
-  list.innerHTML = fishData.map(fish => { const stockRequest = type === 'stock' ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}</small></div><div class="fish-value"><strong>${number(fish[key])}${unit}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
+  list.innerHTML = fishData.map(fish => { const available = Number.isFinite(fish[key]); const value = available ? `${number(fish[key])}${unit}` : type === 'stock' ? '판매자 등록 전' : '거래 데이터 없음'; const stockRequest = type === 'stock' && available && fish.stock > 0 ? `<button class="stock-request-button" data-stock-fish="${fish.name}" data-stock-market="${fish.market}" data-stock-quantity="${fish.stock}">판매 요청</button>` : ''; return `<article class="fish-row"><span class="fish-emoji">${fish.icon}</span><div class="fish-main"><b>${fish.name}</b><small>${fish.market}${fish.note ? ` · ${fish.note}` : ''}</small></div><div class="fish-value"><strong>${value}</strong>${compareMarkup(fish[key], fish[lastKey])}${stockRequest}</div></article>`; }).join('');
   if (type === 'stock') list.querySelectorAll('[data-stock-fish]').forEach(button => button.addEventListener('click', () => saveSaleRequest(button.dataset.stockFish, button.dataset.stockMarket, button.dataset.stockQuantity)));
 }
 
@@ -959,7 +967,7 @@ document.head.appendChild(roleNavigationStyle);
 
 const roleButton = (icon, title, detail, className = '') => `<button class="${className}"><span class="menu-icon">${icon}</span><b>${title}</b><small>${detail}</small></button>`;
 const homePanel = document.querySelector('#home .home-panel');
-homePanel.innerHTML = `<p class="demo-label">● 시연용 예시 데이터</p><h2>오늘 바다의 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '어획량', '오늘 들어온 양')}${roleButton('₩', '시세', '품목별 현재 가격')}</div>`;
+homePanel.innerHTML = `<p class="demo-label">● 2026-02-26 · 부산공동어시장 제공 자료</p><h2>기준일 수산물 정보</h2><div class="role-menu" id="homeRoleMenu">${roleButton('⚓', '위판량', '기준일 거래량')}${roleButton('₩', '시세', '기준일 평균 가격')}</div>`;
 
 const buyerScreen = document.createElement('section');
 buyerScreen.id = 'buyer';
@@ -973,7 +981,7 @@ sellerScreen.id = 'seller';
 sellerScreen.className = 'app-screen role-screen';
 sellerScreen.setAttribute('aria-label', '판매자');
 sellerScreen.innerHTML = `<div class="screen-header"><span></span><div><small>SELLER SPACE</small><h2>판매자</h2></div><span></span></div><p class="role-intro">인증된 판매자는 어획량과 상품을 등록하고<br />구매 요청을 수락할 수 있어요.</p><div class="role-menu" id="sellerRoleMenu">${roleButton('✓', '판매자 인증', '판매 등록 전 확인')}${roleButton('＋', '판매 등록', '상품 올리기', 'seller-main')}${roleButton('📨', '구매 요청 관리', '요청 수락·취소 승인')}</div>`;
-document.querySelector기했더너l('main').appendChild(sellerScreen);
+document.querySelector('main').appendChild(sellerScreen);
 
 const bottomTabs = document.createElement('nav');
 bottomTabs.className = 'bottom-tabs';
@@ -990,4 +998,3 @@ const initialTab = { home: 'home', catch: 'home', price: 'home', buyer: 'buyer',
 bottomTabs.hidden = !initialTab;
 if (initialTab) bottomTabs.querySelector(`[data-tab="${initialTab}"]`).classList.add('active');
 updateRequestNotifications();
-기
